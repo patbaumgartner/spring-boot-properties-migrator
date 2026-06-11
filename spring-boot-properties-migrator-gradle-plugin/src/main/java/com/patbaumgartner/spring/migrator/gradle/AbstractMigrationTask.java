@@ -22,7 +22,9 @@ import org.gradle.api.GradleException;
 import org.gradle.api.artifacts.Configuration;
 import org.gradle.api.artifacts.ResolvedArtifact;
 import org.gradle.api.tasks.Internal;
+import org.gradle.work.DisableCachingByDefault;
 
+@DisableCachingByDefault(because = "Task reads project configuration and external metadata at execution time")
 public abstract class AbstractMigrationTask extends DefaultTask {
 
 	private SpringBootPropertiesMigratorExtension extension;
