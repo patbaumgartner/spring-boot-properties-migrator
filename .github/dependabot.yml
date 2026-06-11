@@ -14,6 +14,9 @@ updates:
     directory: "/samples/spring-boot-3.5-maven-sample"
     schedule:
       interval: "weekly"
+    ignore:
+      - dependency-name: "org.springframework.boot:spring-boot-starter-parent"
+        update-types: ["version-update:semver-major", "version-update:semver-minor"]
 
   - package-ecosystem: "gradle"
     directory: "/"
