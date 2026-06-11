@@ -17,7 +17,7 @@
 
   <properties>
     <java.version>17</java.version>
-    <migrator.version>0.0.1-SNAPSHOT</migrator.version>
+    <migrator.version>0.1.0</migrator.version>
   </properties>
 
   <dependencies>
