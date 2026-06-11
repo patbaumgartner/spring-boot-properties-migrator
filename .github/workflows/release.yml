@@ -26,7 +26,7 @@ jobs:
         run: mvn -B -ntp -DskipTests package -pl spring-boot-properties-migrator-maven-plugin -am
 
       - name: Set up Gradle
-        uses: gradle/actions/setup-gradle@748248ddd2a24f49513d8f472f81c3a07d4d50e1 # v4.4.4
+        uses: gradle/actions/setup-gradle@5e2ebd065dc2488b7a6ad670704656cbbe1e8f60 # v6.1.1
 
       - name: Build Gradle plugin
         run: ./spring-boot-properties-migrator-gradle-plugin/gradlew -p spring-boot-properties-migrator-gradle-plugin build --no-daemon
