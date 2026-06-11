@@ -93,6 +93,22 @@ tasks.named('compileFunctionalTestJava') {
     dependsOn(tasks.named('formatFunctionalTest'))
 }
 
+tasks.named('checkFormatMain') {
+    dependsOn(tasks.named('formatMain'))
+}
+
+tasks.named('checkFormatTest') {
+    dependsOn(tasks.named('formatTest'))
+}
+
+tasks.named('checkFormatFunctionalTest') {
+    dependsOn(tasks.named('formatFunctionalTest'))
+}
+
+tasks.named('sourcesJar') {
+    dependsOn(tasks.named('formatMain'))
+}
+
 tasks.register('functionalTest', Test) {
     description = 'Runs Gradle TestKit functional tests.'
     group = 'verification'
