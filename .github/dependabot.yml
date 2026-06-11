@@ -15,10 +15,13 @@ updates:
     schedule:
       interval: "weekly"
     ignore:
-      - dependency-name: "org.springframework.boot:spring-boot-starter-parent"
+      - dependency-name: "com.patbaumgartner.samples:spring-boot-3.5-maven-sample"
         update-types: ["version-update:semver-major", "version-update:semver-minor"]
 
   - package-ecosystem: "gradle"
     directory: "/"
     schedule:
       interval: "weekly"
+    ignore:
+      - dependency-name: "org.springframework.boot:spring-boot-autoconfigure"
+        update-types: ["version-update:semver-major", "version-update:semver-minor"]
