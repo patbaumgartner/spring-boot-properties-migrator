@@ -1,0 +1,109 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+
+  <groupId>com.patbaumgartner</groupId>
+  <artifactId>spring-boot-properties-migrator-parent</artifactId>
+  <version>${revision}</version>
+  <packaging>pom</packaging>
+
+  <name>Spring Boot Properties Migrator Parent</name>
+  <description>Parent build for Spring Boot properties migrator plugins</description>
+
+  <modules>
+    <module>spring-boot-properties-migrator-core</module>
+    <module>spring-boot-properties-migrator-maven-plugin</module>
+  </modules>
+
+  <properties>
+    <revision>0.0.1-SNAPSHOT</revision>
+    <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+    <maven.compiler.release>17</maven.compiler.release>
+    <spring.boot.version>4.1.0</spring.boot.version>
+    <maven.resolver.version>2.0.18</maven.resolver.version>
+    <maven.plugin.tools.version>3.15.2</maven.plugin.tools.version>
+    <maven.plugin.plugin.version>3.15.2</maven.plugin.plugin.version>
+    <maven.surefire.plugin.version>3.5.6</maven.surefire.plugin.version>
+    <flatten.maven.plugin.version>1.7.3</flatten.maven.plugin.version>
+    <maven.version>3.9.16</maven.version>
+    <junit.version>6.1.0</junit.version>
+    <assertj.version>3.27.7</assertj.version>
+    <commons-io.version>2.20.0</commons-io.version>
+    <snakeyaml.version>2.4</snakeyaml.version>
+  </properties>
+
+  <dependencyManagement>
+    <dependencies>
+      <dependency>
+        <groupId>org.springframework.boot</groupId>
+        <artifactId>spring-boot-configuration-metadata</artifactId>
+        <version>${spring.boot.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>org.apache.maven.resolver</groupId>
+        <artifactId>maven-resolver-util</artifactId>
+        <version>${maven.resolver.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>org.junit.jupiter</groupId>
+        <artifactId>junit-jupiter-api</artifactId>
+        <version>${junit.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>org.junit.jupiter</groupId>
+        <artifactId>junit-jupiter-engine</artifactId>
+        <version>${junit.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>org.assertj</groupId>
+        <artifactId>assertj-core</artifactId>
+        <version>${assertj.version}</version>
+      </dependency>
+    </dependencies>
+  </dependencyManagement>
+
+  <build>
+    <pluginManagement>
+      <plugins>
+        <plugin>
+          <groupId>org.apache.maven.plugins</groupId>
+          <artifactId>maven-plugin-plugin</artifactId>
+          <version>${maven.plugin.plugin.version}</version>
+        </plugin>
+        <plugin>
+          <groupId>org.apache.maven.plugins</groupId>
+          <artifactId>maven-surefire-plugin</artifactId>
+          <version>${maven.surefire.plugin.version}</version>
+        </plugin>
+      </plugins>
+    </pluginManagement>
+  </build>
+  <url>https://github.com/patbaumgartner/spring-boot-properties-migrator</url>
+  <licenses>
+    <license>
+      <name>Apache License, Version 2.0</name>
+      <url>https://www.apache.org/licenses/LICENSE-2.0</url>
+      <distribution>repo</distribution>
+    </license>
+  </licenses>
+
+  <developers>
+    <developer>
+      <id>patbaumgartner</id>
+      <name>Pat Baumgartner</name>
+    </developer>
+  </developers>
+
+  <scm>
+    <connection>scm:git:https://github.com/patbaumgartner/spring-boot-properties-migrator.git</connection>
+    <developerConnection>scm:git:ssh://git@github.com/patbaumgartner/spring-boot-properties-migrator.git</developerConnection>
+    <url>https://github.com/patbaumgartner/spring-boot-properties-migrator</url>
+    <tag>HEAD</tag>
+  </scm>
+  <distributionManagement>
+    <snapshotRepository>
+      <id>ossrh</id>
+      <url>https://s01.oss.sonatype.org/content/repositories/snapshots</url>
+    </snapshotRepository>
+  </distributionManagement>
+</project>
