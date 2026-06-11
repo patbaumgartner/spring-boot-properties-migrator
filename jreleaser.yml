@@ -1,6 +1,6 @@
 project:
   name: spring-boot-properties-migrator
-  version: 0.0.1
+  version: 0.1.0
   description: Maven and Gradle plugins to migrate deprecated Spring Boot properties.
   authors:
     - Patrick Baumgartner
