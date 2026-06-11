@@ -23,7 +23,9 @@ jobs:
         run: mvn -B -ntp install -pl spring-boot-properties-migrator-maven-plugin -am
 
       - name: Run Maven sample regression tests
-        run: ./samples/spring-boot-3.5-maven-sample/mvnw -B -ntp -f samples/spring-boot-3.5-maven-sample/pom.xml test
+        run: |
+          REVISION=$(sed -n 's/^-Drevision=//p' .mvn/maven.config | head -n1)
+          ./samples/spring-boot-3.5-maven-sample/mvnw -B -ntp -f samples/spring-boot-3.5-maven-sample/pom.xml -Dmigrator.version="${REVISION}" test
 
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@748248ddd2a24f49513d8f472f81c3a07d4d50e1 # v4.4.4
