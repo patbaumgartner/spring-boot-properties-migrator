@@ -24,6 +24,10 @@ jobs:
           java-version: '17'
           cache: maven
 
+      - name: Resolve release version
+        id: release-version
+        run: echo "version=${GITHUB_REF_NAME#v}" >> "$GITHUB_OUTPUT"
+
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@5e2ebd065dc2488b7a6ad670704656cbbe1e8f60 # v6.1.1
 
@@ -31,12 +35,14 @@ jobs:
         run: |
           ./spring-boot-properties-migrator-gradle-plugin/gradlew \
             -p spring-boot-properties-migrator-gradle-plugin \
+            -PreleaseVersion=${{ steps.release-version.outputs.version }} \
             build --no-daemon
 
       - name: Publish Gradle plugin
         run: |
           ./spring-boot-properties-migrator-gradle-plugin/gradlew \
             -p spring-boot-properties-migrator-gradle-plugin \
+            -PreleaseVersion=${{ steps.release-version.outputs.version }} \
             publishPlugins --no-daemon
         env:
           GRADLE_PUBLISH_KEY: ${{ secrets.GRADLE_PUBLISH_KEY }}
@@ -46,6 +52,7 @@ jobs:
         run: |
           rm -rf spring-boot-properties-migrator-maven-plugin/target/staging-deploy
           mvn -B -ntp -DskipTests deploy -pl spring-boot-properties-migrator-maven-plugin -am \
+            -Drevision=${{ steps.release-version.outputs.version }} \
             -DaltDeploymentRepository=staging::file:${GITHUB_WORKSPACE}/spring-boot-properties-migrator-maven-plugin/target/staging-deploy
 
       - name: Prepare JReleaser config directory

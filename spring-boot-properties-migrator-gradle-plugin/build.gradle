@@ -13,7 +13,9 @@ def revisionLine = mavenConfigFile.readLines().find { it.startsWith('-Drevision=
 if (revisionLine == null) {
     throw new GradleException("Missing -Drevision in ${mavenConfigFile}")
 }
-version = revisionLine.substring('-Drevision='.length()).trim()
+version = providers.gradleProperty('releaseVersion')
+    .orElse(revisionLine.substring('-Drevision='.length()).trim())
+    .get()
 
 java {
     toolchain {
