@@ -1,0 +1,36 @@
+project:
+  name: spring-boot-properties-migrator
+  version: 0.1.0
+  description: Maven and Gradle plugins to migrate deprecated Spring Boot properties.
+  authors:
+    - Patrick Baumgartner
+  license: Apache-2.0
+  links:
+    homepage: https://github.com/patbaumgartner/spring-boot-properties-migrator
+
+release:
+  github:
+    owner: patbaumgartner
+    name: spring-boot-properties-migrator
+    overwrite: true
+    changelog:
+      formatted: ALWAYS
+      preset: conventional-commits
+
+signing:
+  active: ALWAYS
+  armored: true
+
+deploy:
+  maven:
+    mavenCentral:
+      sonatype:
+        active: ALWAYS
+        url: https://s01.oss.sonatype.org/service/local
+        closeRepository: true
+        releaseRepository: true
+        stagingRepositories:
+          - spring-boot-properties-migrator-maven-plugin/target/staging-deploy
+
+announce:
+  active: NEVER

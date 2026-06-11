@@ -1,0 +1,86 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+
+  <parent>
+    <groupId>org.springframework.boot</groupId>
+    <artifactId>spring-boot-starter-parent</artifactId>
+    <version>3.5.0</version>
+    <relativePath/>
+  </parent>
+
+  <groupId>com.patbaumgartner.samples</groupId>
+  <artifactId>spring-boot-3.5-maven-sample</artifactId>
+  <version>0.0.1-SNAPSHOT</version>
+
+  <properties>
+    <java.version>17</java.version>
+    <migrator.version>0.0.1-SNAPSHOT</migrator.version>
+  </properties>
+
+  <dependencies>
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter-test</artifactId>
+      <scope>test</scope>
+    </dependency>
+  </dependencies>
+
+  <build>
+    <plugins>
+      <plugin>
+        <groupId>com.patbaumgartner</groupId>
+        <artifactId>spring-boot-properties-migrator-maven-plugin</artifactId>
+        <version>${migrator.version}</version>
+        <configuration>
+          <reportFile>target/reports/migration-report.txt</reportFile>
+          <failOnError>true</failOnError>
+        </configuration>
+        <executions>
+          <execution>
+            <id>migrate-test-fixture</id>
+            <phase>process-test-resources</phase>
+            <goals>
+              <goal>migrate</goal>
+            </goals>
+            <configuration>
+              <includes>
+                <include>target/migration-fixture/application.properties</include>
+              </includes>
+              <reportFile>target/reports/migration-report-test-fixture.txt</reportFile>
+            </configuration>
+          </execution>
+        </executions>
+      </plugin>
+      <plugin>
+        <artifactId>maven-resources-plugin</artifactId>
+        <executions>
+          <execution>
+            <id>copy-migration-test-fixture</id>
+            <phase>generate-test-resources</phase>
+            <goals>
+              <goal>copy-resources</goal>
+            </goals>
+            <configuration>
+              <outputDirectory>${project.build.directory}/migration-fixture</outputDirectory>
+              <resources>
+                <resource>
+                  <directory>${project.basedir}/src/test/resources/migration-fixture</directory>
+                  <includes>
+                    <include>application.properties</include>
+                  </includes>
+                </resource>
+              </resources>
+            </configuration>
+          </execution>
+        </executions>
+      </plugin>
+    </plugins>
+  </build>
+</project>

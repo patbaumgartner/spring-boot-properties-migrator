@@ -1,0 +1,107 @@
+plugins {
+    id 'java-gradle-plugin'
+    id 'maven-publish'
+    id 'com.gradle.plugin-publish' version "${gradlePluginPublishVersion}"
+    id 'org.openrewrite.rewrite' version "${openRewritePluginVersion}"
+    id 'io.spring.javaformat' version "${springJavaFormatPluginVersion}"
+}
+
+group = 'com.patbaumgartner'
+
+def mavenConfigFile = file('../.mvn/maven.config')
+def revisionLine = mavenConfigFile.readLines().find { it.startsWith('-Drevision=') }
+if (revisionLine == null) {
+    throw new GradleException("Missing -Drevision in ${mavenConfigFile}")
+}
+version = revisionLine.substring('-Drevision='.length()).trim()
+
+java {
+    toolchain {
+        languageVersion = JavaLanguageVersion.of(17)
+    }
+    withJavadocJar()
+    withSourcesJar()
+}
+
+sourceSets {
+    main {
+        java {
+            srcDir '../spring-boot-properties-migrator-core/src/main/java'
+        }
+    }
+    functionalTest {
+        java.srcDir file('src/functionalTest/java')
+        resources.srcDir file('src/functionalTest/resources')
+        compileClasspath += sourceSets.main.output + configurations.testRuntimeClasspath
+        runtimeClasspath += output + compileClasspath
+    }
+}
+
+configurations {
+    functionalTestImplementation.extendsFrom(testImplementation)
+    functionalTestRuntimeOnly.extendsFrom(testRuntimeOnly)
+}
+
+repositories {
+    mavenCentral()
+}
+
+dependencies {
+    implementation "org.springframework.boot:spring-boot-configuration-metadata:${springBootConfigurationMetadataVersion}"
+    implementation "org.yaml:snakeyaml:${snakeyamlVersion}"
+
+    testImplementation gradleTestKit()
+    testImplementation "org.junit.jupiter:junit-jupiter:${junitJupiterVersion}"
+    testRuntimeOnly "org.junit.platform:junit-platform-launcher:${junitPlatformLauncherVersion}"
+    testImplementation "org.assertj:assertj-core:${assertjVersion}"
+
+    functionalTestImplementation gradleTestKit()
+    functionalTestImplementation "org.junit.jupiter:junit-jupiter:${junitJupiterVersion}"
+    functionalTestRuntimeOnly "org.junit.platform:junit-platform-launcher:${junitPlatformLauncherVersion}"
+    functionalTestImplementation "org.assertj:assertj-core:${assertjVersion}"
+}
+
+gradlePlugin {
+    website = 'https://github.com/patbaumgartner/spring-boot-properties-migrator'
+    vcsUrl = 'https://github.com/patbaumgartner/spring-boot-properties-migrator'
+
+    plugins {
+        springBootPropertiesMigrator {
+            id = 'com.patbaumgartner.spring-boot-properties-migrator'
+            implementationClass = 'com.patbaumgartner.spring.migrator.gradle.SpringBootPropertiesMigratorPlugin'
+            displayName = 'Spring Boot Properties Migrator Plugin'
+            description = 'Analyzes and migrates deprecated Spring Boot properties.'
+            tags.set(['spring-boot', 'migration', 'configuration', 'properties'])
+        }
+    }
+    testSourceSets(sourceSets.functionalTest)
+}
+
+tasks.withType(Test).configureEach {
+    useJUnitPlatform()
+}
+
+tasks.named('compileJava') {
+    dependsOn(tasks.named('formatMain'))
+}
+
+tasks.named('compileTestJava') {
+    dependsOn(tasks.named('formatTest'))
+}
+
+tasks.named('compileFunctionalTestJava') {
+    dependsOn(tasks.named('formatFunctionalTest'))
+}
+
+tasks.register('functionalTest', Test) {
+    description = 'Runs Gradle TestKit functional tests.'
+    group = 'verification'
+    testClassesDirs = sourceSets.functionalTest.output.classesDirs
+    classpath = sourceSets.functionalTest.runtimeClasspath
+    useJUnitPlatform()
+    shouldRunAfter(tasks.test)
+}
+
+tasks.named('check') {
+    dependsOn(tasks.named('functionalTest'))
+}
