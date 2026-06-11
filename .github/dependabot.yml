@@ -1,0 +1,32 @@
+version: 2
+updates:
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+
+  - package-ecosystem: "maven"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+
+  - package-ecosystem: "maven"
+    directory: "/samples/spring-boot-3.5-maven-sample"
+    schedule:
+      interval: "weekly"
+    ignore:
+      - dependency-name: "org.springframework.boot:spring-boot-starter-parent"
+        update-types: ["version-update:semver-major", "version-update:semver-minor"]
+
+  - package-ecosystem: "gradle"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+
+  - package-ecosystem: "gradle"
+    directory: "/samples/spring-boot-3.5-gradle-sample"
+    schedule:
+      interval: "weekly"
+    ignore:
+      - dependency-name: "org.springframework.boot:spring-boot-autoconfigure"
+        update-types: ["version-update:semver-major", "version-update:semver-minor"]

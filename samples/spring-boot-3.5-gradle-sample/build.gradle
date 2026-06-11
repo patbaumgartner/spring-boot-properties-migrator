@@ -1,0 +1,56 @@
+plugins {
+    id 'java'
+    id 'org.openrewrite.rewrite' version "${openRewritePluginVersion}"
+    id 'io.spring.javaformat' version "${springJavaFormatPluginVersion}"
+    id 'com.patbaumgartner.spring-boot-properties-migrator'
+}
+
+group = 'com.patbaumgartner.samples'
+version = '0.0.1-SNAPSHOT'
+
+java {
+    toolchain {
+        languageVersion = JavaLanguageVersion.of(17)
+    }
+}
+
+repositories {
+    mavenCentral()
+}
+
+dependencies {
+    implementation "org.springframework.boot:spring-boot-autoconfigure:${springBootVersion}"
+    testImplementation "org.junit.jupiter:junit-jupiter:${junitJupiterVersion}"
+    testRuntimeOnly "org.junit.platform:junit-platform-launcher:${junitPlatformLauncherVersion}"
+    testImplementation "org.assertj:assertj-core:${assertjVersion}"
+}
+
+tasks.register('prepareMigrationFixture', Copy) {
+    from('src/test/resources/migration-fixture/application.properties')
+    into(layout.buildDirectory.dir('migration-fixture'))
+}
+
+springBootPropertiesMigrator {
+    failOnError = true
+    reportFile = 'build/reports/migration-report.txt'
+}
+
+tasks.named('springBootPropertiesMigrate') {
+    dependsOn tasks.named('prepareMigrationFixture')
+    doFirst {
+        springBootPropertiesMigrator.includes = ['build/migration-fixture/application.properties']
+    }
+}
+
+tasks.named('test') {
+    dependsOn tasks.named('springBootPropertiesMigrate')
+    useJUnitPlatform()
+}
+
+tasks.named('compileJava') {
+    dependsOn(tasks.named('formatMain'))
+}
+
+tasks.named('compileTestJava') {
+    dependsOn(tasks.named('formatTest'))
+}

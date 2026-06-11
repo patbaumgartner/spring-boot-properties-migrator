@@ -1,0 +1,7 @@
+# Repository metadata used for release and documentation tooling.
+# Keep values stable and non-sensitive.
+
+git.defaultBranch=main
+git.repositoryUrl=https://github.com/patbaumgartner/spring-boot-properties-migrator
+git.projectName=spring-boot-properties-migrator
+git.license=Apache-2.0

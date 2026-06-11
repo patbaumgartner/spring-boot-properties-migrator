@@ -1,0 +1,5 @@
+pluginManagement {
+    includeBuild('../../spring-boot-properties-migrator-gradle-plugin')
+}
+
+rootProject.name = 'spring-boot-3.5-gradle-sample'

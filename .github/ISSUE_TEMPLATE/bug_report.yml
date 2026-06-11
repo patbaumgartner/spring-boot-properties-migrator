@@ -1,0 +1,42 @@
+name: Bug report
+description: Report a problem with migration analysis or rewrite behavior.
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for opening an issue.
+  - type: input
+    id: plugin
+    attributes:
+      label: Plugin
+      description: Maven or Gradle plugin
+      placeholder: maven-plugin / gradle-plugin
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Plugin version
+      placeholder: 0.1.0
+    validations:
+      required: true
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Reproduction
+      description: Include minimal config and sample property file.
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual behavior
+    validations:
+      required: true

@@ -1,0 +1,43 @@
+# IntelliJ
+.idea/
+*.iml
+
+# Eclipse
+.classpath
+.project
+.settings/
+
+# VS Code
+.vscode/
+
+# Build output
+**/target/
+**/build/
+**/.gradle/
+**/bin/
+**/.gradle-test-kit/
+**/build/tmp/
+**/build/reports/problems/
+
+# OS
+.DS_Store
+
+# Logs
+*.log
+
+# Editor/temp files
+*.tmp
+*.swp
+*.swo
+*~
+
+# Local overrides
+.env
+.jreleaser/
+out/
+
+# Maven 
+pom.xml.bak
+pom.xml.versionsBackup
+*.versionsBackup
+**/.flattened-pom.xml

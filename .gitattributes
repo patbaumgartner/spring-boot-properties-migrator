@@ -1,0 +1,21 @@
+# Normalize text files to LF by default
+* text=auto eol=lf
+
+# Windows scripts keep CRLF
+*.bat text eol=crlf
+*.cmd text eol=crlf
+
+# Shell scripts should stay LF
+*.sh text eol=lf
+mvnw text eol=lf
+gradlew text eol=lf
+
+# Binary artifacts
+*.jar binary
+*.class binary
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.webp binary
+*.pdf binary
