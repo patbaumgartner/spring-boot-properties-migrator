@@ -43,7 +43,7 @@ Coordinates:
     <plugin>
       <groupId>com.patbaumgartner</groupId>
       <artifactId>spring-boot-properties-migrator-maven-plugin</artifactId>
-      <version>0.0.1-SNAPSHOT</version>
+      <version>0.1.1-SNAPSHOT</version>
       <configuration>
         <failOnError>true</failOnError>
         <reportFile>target/reports/spring-boot-migration-report.txt</reportFile>
@@ -81,7 +81,7 @@ Plugin ID:
 
 ```kotlin
 plugins {
-    id("com.patbaumgartner.spring-boot-properties-migrator") version "0.0.1-SNAPSHOT"
+    id("com.patbaumgartner.spring-boot-properties-migrator") version "0.1.1-SNAPSHOT"
 }
 
 springBootPropertiesMigrator {
@@ -94,7 +94,7 @@ springBootPropertiesMigrator {
 
 ```groovy
 plugins {
-    id 'com.patbaumgartner.spring-boot-properties-migrator' version '0.0.1-SNAPSHOT'
+    id 'com.patbaumgartner.spring-boot-properties-migrator' version '0.1.1-SNAPSHOT'
 }
 
 springBootPropertiesMigrator {
@@ -128,14 +128,14 @@ Run Maven sample analyze:
 
 ```bash
 ./mvnw -f samples/spring-boot-3.5-maven-sample/pom.xml \
-  com.patbaumgartner:spring-boot-properties-migrator-maven-plugin:0.0.1-SNAPSHOT:analyze
+  com.patbaumgartner:spring-boot-properties-migrator-maven-plugin:0.1.1-SNAPSHOT:analyze
 ```
 
 Run Maven sample migrate:
 
 ```bash
 ./mvnw -f samples/spring-boot-3.5-maven-sample/pom.xml \
-  com.patbaumgartner:spring-boot-properties-migrator-maven-plugin:0.0.1-SNAPSHOT:migrate
+  com.patbaumgartner:spring-boot-properties-migrator-maven-plugin:0.1.1-SNAPSHOT:migrate
 ```
 
 Run Gradle sample analyze:
