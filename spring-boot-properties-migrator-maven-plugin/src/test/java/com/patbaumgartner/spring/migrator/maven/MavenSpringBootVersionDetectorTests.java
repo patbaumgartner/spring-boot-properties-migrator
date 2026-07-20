@@ -3,7 +3,6 @@ package com.patbaumgartner.spring.migrator.maven;
 import java.util.List;
 import java.util.Optional;
 
-
 import org.apache.maven.model.Dependency;
 import org.apache.maven.model.DependencyManagement;
 import org.apache.maven.model.Model;

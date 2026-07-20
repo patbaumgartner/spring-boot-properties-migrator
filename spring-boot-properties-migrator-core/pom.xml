@@ -13,7 +13,6 @@
 
   <name>Spring Boot Properties Migrator Core</name>
   <description>Shared migration engine used by Maven and Gradle plugins.</description>
-  <url>https://github.com/patbaumgartner/spring-boot-properties-migrator</url>
 
   <dependencies>
     <dependency>
@@ -71,4 +70,5 @@
       </plugin>
     </plugins>
   </build>
+  <url>https://github.com/patbaumgartner/spring-boot-properties-migrator</url>
 </project>

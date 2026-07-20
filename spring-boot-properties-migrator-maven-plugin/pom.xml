@@ -13,7 +13,6 @@
 
   <name>Spring Boot Properties Migrator Maven Plugin</name>
   <description>Maven plugin to analyze and migrate deprecated Spring Boot configuration properties.</description>
-  <url>https://github.com/patbaumgartner/spring-boot-properties-migrator</url>
 
   <dependencies>
     <dependency>
@@ -114,4 +113,5 @@
       </plugin>
     </plugins>
   </build>
+  <url>https://github.com/patbaumgartner/spring-boot-properties-migrator</url>
 </project>

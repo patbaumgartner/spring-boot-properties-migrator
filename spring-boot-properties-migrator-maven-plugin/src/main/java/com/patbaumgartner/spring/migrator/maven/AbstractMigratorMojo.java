@@ -9,7 +9,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
-
 import com.patbaumgartner.spring.migrator.core.DeprecatedProperty;
 import com.patbaumgartner.spring.migrator.core.MigrationEngine;
 import com.patbaumgartner.spring.migrator.core.MigrationRunResult;
