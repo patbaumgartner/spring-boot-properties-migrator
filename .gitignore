@@ -8,7 +8,8 @@
 .settings/
 
 # VS Code
-.vscode/
+.vscode/*
+!.vscode/settings.json
 
 # Build output
 **/target/
