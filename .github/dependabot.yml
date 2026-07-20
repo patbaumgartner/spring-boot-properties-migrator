@@ -50,7 +50,7 @@ updates:
     prefix-development: chore(deps-dev)
     include: scope
 - package-ecosystem: gradle
-  directory: /
+  directory: /spring-boot-properties-migrator-gradle-plugin
   schedule:
     interval: weekly
     day: monday
