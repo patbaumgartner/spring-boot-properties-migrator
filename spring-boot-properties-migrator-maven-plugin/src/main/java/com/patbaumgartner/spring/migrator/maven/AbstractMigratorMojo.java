@@ -4,92 +4,165 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.LinkedHashSet;
+import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
 
-import com.patbaumgartner.spring.migrator.core.DeprecatedProperty;
+import com.patbaumgartner.spring.migrator.core.DeprecationCatalog;
+import com.patbaumgartner.spring.migrator.core.FailurePolicy;
+import com.patbaumgartner.spring.migrator.core.MetadataRepositoryLoader;
 import com.patbaumgartner.spring.migrator.core.MigrationEngine;
-import com.patbaumgartner.spring.migrator.core.MigrationRunResult;
+import com.patbaumgartner.spring.migrator.core.MigrationPlan;
 import com.patbaumgartner.spring.migrator.core.PropertyFileScanner;
 import org.apache.maven.artifact.Artifact;
 import org.apache.maven.plugin.AbstractMojo;
 import org.apache.maven.plugin.MojoExecutionException;
+import org.apache.maven.plugin.MojoFailureException;
 import org.apache.maven.plugins.annotations.Parameter;
 import org.apache.maven.project.MavenProject;
-import org.eclipse.aether.artifact.DefaultArtifact;
 import org.springframework.boot.configurationmetadata.ConfigurationMetadataRepository;
 
+/**
+ * Shared behaviour of the analyze and migrate goals.
+ */
 abstract class AbstractMigratorMojo extends AbstractMojo {
+
+	static final String PREFIX = "spring-boot-properties-migrator.";
 
 	@Parameter(defaultValue = "${project}", readonly = true, required = true)
 	protected MavenProject project;
 
+	/**
+	 * Glob patterns, relative to the project directory, selecting the configuration files
+	 * to inspect. Defaults to Spring Boot's conventional locations under
+	 * {@code src/main/resources} and {@code src/test/resources}.
+	 */
 	@Parameter
 	protected List<String> includes;
 
-	@Parameter(defaultValue = "false")
-	protected boolean failOnError;
+	/**
+	 * When the build should fail: {@code never}, {@code manual} when a finding needs a
+	 * human, or {@code any} for any deprecated property at all.
+	 */
+	@Parameter(property = PREFIX + "failOn", defaultValue = "never")
+	protected String failOn;
 
-	@Parameter
+	/**
+	 * Optional file, relative to the project directory, to write the report to.
+	 */
+	@Parameter(property = PREFIX + "reportFile")
 	protected String reportFile;
 
-	@Parameter
+	/**
+	 * Overrides the Spring Boot version shown in the report. Metadata is always read from
+	 * the resolved project classpath, so this does not change what gets detected.
+	 */
+	@Parameter(property = PREFIX + "springBootVersion")
 	protected String springBootVersion;
 
+	/**
+	 * Skips the goal entirely.
+	 */
+	@Parameter(property = PREFIX + "skip", defaultValue = "false")
+	protected boolean skip;
+
+	/**
+	 * Returns whether this goal writes the migrated files.
+	 * @return whether to apply the plan
+	 */
 	protected abstract boolean applyChanges();
 
-	protected final void executeInternal() throws MojoExecutionException {
+	protected final void executeInternal() throws MojoExecutionException, MojoFailureException {
+		if (this.skip) {
+			getLog().info("Skipping Spring Boot properties migration.");
+			return;
+		}
+
+		FailurePolicy policy = parsePolicy();
+		Path baseDir = this.project.getBasedir().toPath();
+		List<String> effectiveIncludes = (this.includes == null || this.includes.isEmpty())
+				? PropertyFileScanner.defaultIncludes() : this.includes;
+
+		PropertyFileScanner.ScanResult scan = PropertyFileScanner.scan(baseDir, effectiveIncludes);
+		scan.warnings().forEach((warning) -> getLog().warn(warning));
+		if (scan.files().isEmpty()) {
+			getLog().info("No configuration files matched " + effectiveIncludes + ".");
+			return;
+		}
+
+		MigrationPlan plan = analyze(baseDir, scan.files());
+		String report = plan.render(applyChanges() && plan.hasPendingWrites());
+		getLog().info(System.lineSeparator() + report);
+		plan.diagnostics().forEach((diagnostic) -> getLog().warn(diagnostic));
+		writeReport(baseDir, report);
+
+		// Decide before mutating, so a failing policy never leaves files half migrated.
+		if (policy.isViolatedBy(plan)) {
+			throw new MojoFailureException(
+					"Spring Boot properties migration failed: " + policy.describeViolation(plan) + ".");
+		}
+		if (applyChanges()) {
+			applyPlan(plan);
+		}
+	}
+
+	private MigrationPlan analyze(Path baseDir, List<Path> files) throws MojoExecutionException {
+		Optional<String> detectedVersion = (this.springBootVersion == null || this.springBootVersion.isBlank())
+				? MavenSpringBootVersionDetector.detect(this.project) : Optional.of(this.springBootVersion);
+		detectedVersion.ifPresent((version) -> getLog().info("Detected Spring Boot version: " + version));
+
 		try {
-			Path baseDir = this.project.getBasedir().toPath();
-			List<String> effectiveIncludes = this.includes == null || this.includes.isEmpty()
-					? PropertyFileScanner.defaultIncludes() : this.includes;
-
-			List<Path> files = PropertyFileScanner.scan(baseDir, effectiveIncludes);
-			if (files.isEmpty()) {
-				getLog().info("No property files found for configured includes.");
-				return;
-			}
-
-			Optional<String> detectedVersion = this.springBootVersion == null || this.springBootVersion.isBlank()
-					? MavenSpringBootVersionDetector.detect(this.project) : Optional.of(this.springBootVersion);
-			detectedVersion.ifPresent(v -> getLog().info("Detected Spring Boot version: " + v));
-
-			LinkedHashSet<org.eclipse.aether.artifact.Artifact> artifacts = new LinkedHashSet<>();
-			for (Artifact artifact : this.project.getArtifacts()) {
-				DefaultArtifact aether = new DefaultArtifact(artifact.getGroupId(), artifact.getArtifactId(),
-						artifact.getClassifier(), artifact.getType(), artifact.getVersion());
-				aether = (DefaultArtifact) aether.setFile(artifact.getFile());
-				artifacts.add(aether);
-			}
-
-			ConfigurationMetadataRepository repository = MavenMetadataRepositoryLoader.loadFromArtifacts(artifacts);
-			Map<String, DeprecatedProperty> deprecatedByKey = MigrationEngine
-				.toDeprecatedMap(repository.getAllProperties());
-
-			MigrationEngine engine = new MigrationEngine();
-			MigrationRunResult result = engine.run(baseDir, files, deprecatedByKey, applyChanges());
-
-			String summary = result.renderSummary(!applyChanges());
-			getLog().info(System.lineSeparator() + summary);
-
-			if (this.reportFile != null && !this.reportFile.isBlank()) {
-				Path output = baseDir.resolve(this.reportFile).normalize();
-				if (output.getParent() != null) {
-					Files.createDirectories(output.getParent());
-				}
-				Files.writeString(output, summary, StandardCharsets.UTF_8);
-				getLog().info("Wrote migration report to " + output);
-			}
-
-			if (this.failOnError && !result.getUnsupported().isEmpty()) {
-				throw new MojoExecutionException(
-						"Unsupported deprecated properties found: " + result.getUnsupported().size());
-			}
+			ConfigurationMetadataRepository repository = MetadataRepositoryLoader.load(classpathEntries());
+			DeprecationCatalog catalog = DeprecationCatalog.from(repository.getAllProperties());
+			return new MigrationEngine().plan(baseDir, files, catalog, detectedVersion.orElse(null));
 		}
 		catch (IOException ex) {
-			throw new MojoExecutionException("Failed running Spring Boot properties migration", ex);
+			throw new MojoExecutionException("Failed reading Spring Boot configuration metadata", ex);
+		}
+	}
+
+	private void applyPlan(MigrationPlan plan) throws MojoExecutionException {
+		try {
+			new MigrationEngine().apply(plan);
+		}
+		catch (IOException ex) {
+			throw new MojoExecutionException("Failed writing migrated configuration files", ex);
+		}
+	}
+
+	private List<Path> classpathEntries() {
+		List<Path> entries = new ArrayList<>();
+		for (Artifact artifact : this.project.getArtifacts()) {
+			if (artifact.getFile() != null) {
+				entries.add(artifact.getFile().toPath());
+			}
+		}
+		return entries;
+	}
+
+	private void writeReport(Path baseDir, String report) throws MojoExecutionException {
+		if (this.reportFile == null || this.reportFile.isBlank()) {
+			return;
+		}
+		try {
+			Path output = baseDir.resolve(this.reportFile).normalize();
+			if (output.getParent() != null) {
+				Files.createDirectories(output.getParent());
+			}
+			Files.writeString(output, report, StandardCharsets.UTF_8);
+			getLog().info("Wrote migration report to " + output);
+		}
+		catch (IOException ex) {
+			throw new MojoExecutionException("Failed writing migration report to " + this.reportFile, ex);
+		}
+	}
+
+	private FailurePolicy parsePolicy() throws MojoExecutionException {
+		try {
+			return FailurePolicy.parse(this.failOn);
+		}
+		catch (IllegalArgumentException ex) {
+			throw new MojoExecutionException(ex.getMessage(), ex);
 		}
 	}
 

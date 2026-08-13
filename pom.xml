@@ -20,7 +20,6 @@
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
     <maven.compiler.release>17</maven.compiler.release>
     <spring.boot.version>4.1.0</spring.boot.version>
-    <maven.resolver.version>2.0.21</maven.resolver.version>
     <maven.plugin.tools.version>3.15.2</maven.plugin.tools.version>
     <maven.plugin.plugin.version>3.15.2</maven.plugin.plugin.version>
     <maven.surefire.plugin.version>3.5.6</maven.surefire.plugin.version>
@@ -39,11 +38,6 @@
         <groupId>org.springframework.boot</groupId>
         <artifactId>spring-boot-configuration-metadata</artifactId>
         <version>${spring.boot.version}</version>
-      </dependency>
-      <dependency>
-        <groupId>org.apache.maven.resolver</groupId>
-        <artifactId>maven-resolver-util</artifactId>
-        <version>${maven.resolver.version}</version>
       </dependency>
       <dependency>
         <groupId>org.yaml</groupId>
