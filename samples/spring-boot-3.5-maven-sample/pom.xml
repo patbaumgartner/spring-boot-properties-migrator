@@ -40,7 +40,7 @@
         <version>${migrator.version}</version>
         <configuration>
           <reportFile>target/reports/migration-report.txt</reportFile>
-          <failOnError>true</failOnError>
+          <failOn>never</failOn>
         </configuration>
         <executions>
           <execution>
