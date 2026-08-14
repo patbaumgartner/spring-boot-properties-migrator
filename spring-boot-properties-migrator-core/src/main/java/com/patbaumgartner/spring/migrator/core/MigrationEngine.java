@@ -88,14 +88,14 @@ public final class MigrationEngine {
 		String text = hasBom ? raw.substring(1) : raw;
 
 		DocumentKeys document = parse(file, text);
-		String restriction = document.restriction();
-		if (restriction == null) {
-			restriction = writeRestrictionFor(file);
-		}
-
 		List<Candidate> candidates = collectCandidates(document, catalog);
 		if (candidates.isEmpty()) {
 			return;
+		}
+
+		String restriction = document.restriction();
+		if (restriction == null) {
+			restriction = writeRestrictionFor(file);
 		}
 
 		Set<String> present = new HashSet<>();
