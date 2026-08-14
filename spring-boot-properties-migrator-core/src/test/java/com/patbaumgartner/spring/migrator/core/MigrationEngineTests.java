@@ -317,8 +317,10 @@ class MigrationEngineTests {
 		MigrationPlan plan = migrate(file, DeprecationCatalog.from(metadata));
 
 		assertThat(read(file)).isEqualTo(original);
-		assertThat(plan.changes(Outcome.UNSUPPORTED)).singleElement()
-			.satisfies((change) -> assertThat(change.reason()).isEqualTo("No longer supported"));
+		assertThat(plan.changes(Outcome.UNSUPPORTED)).singleElement().satisfies((change) -> {
+			assertThat(change.reason()).isEqualTo("No longer supported");
+			assertThat(change.advice()).contains("no longer reads this property");
+		});
 	}
 
 	@Test
