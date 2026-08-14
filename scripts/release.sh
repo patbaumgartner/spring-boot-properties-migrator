@@ -9,7 +9,6 @@ GRADLE_PLUGIN_PROJECT="spring-boot-properties-migrator-gradle-plugin"
 GRADLE_SAMPLE_PROJECT="samples/spring-boot-3.5-gradle-sample"
 MAVEN_CONFIG_FILE=".mvn/maven.config"
 ROOT_POM_FILE="pom.xml"
-JRELEASER_FILE="jreleaser.yml"
 PRERELEASE_REGEX='(alpha|Alpha|ALPHA|beta|Beta|BETA|rc|RC|M|EA|CR|preview|PREVIEW)'
 
 log() {
@@ -89,11 +88,6 @@ next_snapshot_from_release() {
   echo "${major}.${minor}.$((patch + 1))-SNAPSHOT"
 }
 
-base_version() {
-  local version="$1"
-  echo "${version%-SNAPSHOT}"
-}
-
 current_revision() {
   cd "$ROOT_DIR"
   local rev
@@ -165,18 +159,6 @@ set_revision() {
   fi
 }
 
-set_jreleaser_version() {
-  local version="$1"
-  local release_version
-  release_version="$(base_version "$version")"
-  cd "$ROOT_DIR"
-  if [[ -f "$JRELEASER_FILE" ]]; then
-    perl -0pi -e 's#(project:\n(?:[^\n]*\n)*?\s*version:\s*)[^\n]+#${1}'"$release_version"'#' "$JRELEASER_FILE"
-  else
-    die "Missing $JRELEASER_FILE"
-  fi
-}
-
 run_gradle() {
   local project_path="$1"
   shift
@@ -237,8 +219,7 @@ maven_rewrite_phase() {
   ./mvnw -B -ntp -Dmaven.gitcommitid.skip=true -Dcyclonedx.skip=true \
     org.openrewrite.maven:rewrite-maven-plugin:run \
     -Drewrite.activeRecipes=org.openrewrite.staticanalysis.CodeCleanup,org.openrewrite.java.logging.slf4j.Slf4jBestPractices,org.openrewrite.java.testing.junit.JUnit6BestPractices,org.openrewrite.java.testing.mockito.MockitoBestPractices,org.openrewrite.java.spring.boot4.UpgradeSpringBoot_4_0 \
-    -Drewrite.recipeArtifactCoordinates=io.moderne.recipe:rewrite-spring:LATEST,org.openrewrite.recipe:rewrite-static-analysis:LATEST,org.openrewrite.recipe:rewrite-logging-frameworks:LATEST,org.openrewrite.recipe:rewrite-testing-frameworks:LATEST \
-    -Drewrite.exclusions="**/PetTypeFormatterTests.java"
+    -Drewrite.recipeArtifactCoordinates=io.moderne.recipe:rewrite-spring:LATEST,org.openrewrite.recipe:rewrite-static-analysis:LATEST,org.openrewrite.recipe:rewrite-logging-frameworks:LATEST,org.openrewrite.recipe:rewrite-testing-frameworks:LATEST
 
   ./mvnw -B -ntp -Dmaven.gitcommitid.skip=true -Dcyclonedx.skip=true \
     org.openrewrite.maven:rewrite-maven-plugin:run \
@@ -291,8 +272,7 @@ gradle_rewrite_phase() {
 
   run_gradle "$GRADLE_PLUGIN_PROJECT" rewriteRun --no-daemon --console=plain \
     -Drewrite.activeRecipes="$rewrite_main_recipes" \
-    -Drewrite.recipeArtifactCoordinates="$rewrite_recipe_coordinates" \
-    -Drewrite.exclusions="**/PetTypeFormatterTests.java"
+    -Drewrite.recipeArtifactCoordinates="$rewrite_recipe_coordinates"
 
   run_gradle "$GRADLE_PLUGIN_PROJECT" rewriteRun --no-daemon --console=plain \
     -Drewrite.activeRecipes="$rewrite_import_recipes" \
@@ -384,7 +364,6 @@ prepare_release() {
 
   log "Setting release version ${version}"
   set_revision "$version"
-  set_jreleaser_version "$version"
 
   log "Running regression tests"
   run_regression_for_all
@@ -440,7 +419,6 @@ prepare_next_iteration() {
 
   log "Setting next iteration version ${next_version}"
   set_revision "$next_version"
-  set_jreleaser_version "$next_version"
 
   commit_changes "chore: prepare next iteration ${next_version}" true
   log "Next iteration commit created."

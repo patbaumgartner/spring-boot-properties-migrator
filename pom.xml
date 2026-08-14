@@ -30,6 +30,7 @@
     <junit.version>6.1.2</junit.version>
     <assertj.version>3.27.7</assertj.version>
     <snakeyaml.version>2.6</snakeyaml.version>
+    <spring.javaformat.version>0.0.47</spring.javaformat.version>
   </properties>
 
   <dependencyManagement>
@@ -88,6 +89,20 @@
       </plugins>
     </pluginManagement>
     <plugins>
+      <plugin>
+        <groupId>io.spring.javaformat</groupId>
+        <artifactId>spring-javaformat-maven-plugin</artifactId>
+        <version>${spring.javaformat.version}</version>
+        <executions>
+          <execution>
+            <id>validate-format</id>
+            <goals>
+              <goal>validate</goal>
+            </goals>
+            <phase>validate</phase>
+          </execution>
+        </executions>
+      </plugin>
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-source-plugin</artifactId>
