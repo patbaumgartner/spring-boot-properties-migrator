@@ -8,7 +8,7 @@ Prerequisites:
 
 - Java 17
 - Maven 3.9+
-- Gradle 9.5.1+
+- Gradle 8.0+ (the repository ships wrappers)
 
 ## Versioning
 
@@ -20,15 +20,54 @@ The project uses a single version source for both Maven and Gradle:
 
 When bumping versions, update only `revision` in `.mvn/maven.config`.
 Maven modules and the Gradle plugin read that same value automatically.
+The released version comes from the git tag, including for JReleaser.
 For Gradle dependency/plugin version bumps, update the relevant `gradle.properties` file(s).
 
 Build everything:
 
 ```bash
-./mvnw -B -ntp verify -pl spring-boot-properties-migrator-maven-plugin -am
-cd spring-boot-properties-migrator-gradle-plugin
-JAVA_HOME=/usr/lib/jvm/java-21-openjdk-amd64 ./gradlew build functionalTest
+# Maven modules, plus the Maven sample regression test
+./mvnw -B -ntp install -pl spring-boot-properties-migrator-maven-plugin -am
+./samples/spring-boot-3.5-maven-sample/mvnw -B -ntp \
+  -f samples/spring-boot-3.5-maven-sample/pom.xml test
+
+# Gradle plugin (unit + TestKit functional tests), plus the Gradle sample
+./spring-boot-properties-migrator-gradle-plugin/gradlew \
+  -p spring-boot-properties-migrator-gradle-plugin build
+./samples/spring-boot-3.5-gradle-sample/gradlew \
+  -p samples/spring-boot-3.5-gradle-sample test
 ```
+
+## Code Style
+
+The project uses [spring-javaformat](https://github.com/spring-io/spring-javaformat), and
+the build **verifies** rather than applies it. Fix violations with:
+
+```bash
+./mvnw io.spring.javaformat:spring-javaformat-maven-plugin:apply
+./spring-boot-properties-migrator-gradle-plugin/gradlew \
+  -p spring-boot-properties-migrator-gradle-plugin format
+```
+
+## Architecture
+
+`spring-boot-properties-migrator-core` holds everything that decides *what* to change:
+
+| Type | Responsibility |
+|---|---|
+| `PropertyFileScanner` | Finds candidate configuration files |
+| `PropertiesKeyParser` / `YamlKeyParser` | Locate each key and its exact source span |
+| `DeprecationCatalog` | Relaxed-binding lookup, replacement chains, value types |
+| `MigrationEngine` | Decides per key, then plans or applies span edits |
+| `FailurePolicy` | Turns a plan into a build outcome |
+
+The Maven and Gradle modules are thin adapters: they resolve the classpath, call
+`plan()`, render the report, and call `apply()`. Behaviour changes belong in core, where
+they are tested once and shared by both plugins.
+
+The Gradle plugin compiles the core sources directly (see `sourceSets` in its
+`build.gradle`) so the published plugin is self-contained and can never drift from the
+core version it was built against.
 
 ## Pull Requests
 
