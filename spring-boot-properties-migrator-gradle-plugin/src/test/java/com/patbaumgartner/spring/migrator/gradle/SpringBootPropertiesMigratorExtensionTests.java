@@ -13,7 +13,7 @@ class SpringBootPropertiesMigratorExtensionTests {
 		SpringBootPropertiesMigratorExtension extension = new SpringBootPropertiesMigratorExtension();
 
 		assertThat(extension.getIncludes()).isNotEmpty();
-		assertThat(extension.isFailOnError()).isFalse();
+		assertThat(extension.getFailOn()).isEqualTo("never");
 		assertThat(extension.isDryRun()).isFalse();
 		assertThat(extension.getReportFile()).isNull();
 		assertThat(extension.getSpringBootVersion()).isNull();
@@ -24,13 +24,13 @@ class SpringBootPropertiesMigratorExtensionTests {
 		SpringBootPropertiesMigratorExtension extension = new SpringBootPropertiesMigratorExtension();
 
 		extension.setIncludes(List.of("src/main/resources/application.properties"));
-		extension.setFailOnError(true);
+		extension.setFailOn("manual");
 		extension.setDryRun(true);
 		extension.setReportFile("build/report.txt");
 		extension.setSpringBootVersion("4.1.0");
 
 		assertThat(extension.getIncludes()).containsExactly("src/main/resources/application.properties");
-		assertThat(extension.isFailOnError()).isTrue();
+		assertThat(extension.getFailOn()).isEqualTo("manual");
 		assertThat(extension.isDryRun()).isTrue();
 		assertThat(extension.getReportFile()).isEqualTo("build/report.txt");
 		assertThat(extension.getSpringBootVersion()).isEqualTo("4.1.0");

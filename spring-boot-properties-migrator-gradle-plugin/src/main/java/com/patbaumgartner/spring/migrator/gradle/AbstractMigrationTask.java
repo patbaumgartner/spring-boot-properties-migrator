@@ -6,106 +6,175 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
-import java.util.Comparator;
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
-import java.util.Set;
-import java.util.stream.Collectors;
 
-import com.patbaumgartner.spring.migrator.core.DeprecatedProperty;
+import com.patbaumgartner.spring.migrator.core.DeprecationCatalog;
+import com.patbaumgartner.spring.migrator.core.FailurePolicy;
+import com.patbaumgartner.spring.migrator.core.MetadataRepositoryLoader;
 import com.patbaumgartner.spring.migrator.core.MigrationEngine;
-import com.patbaumgartner.spring.migrator.core.MigrationRunResult;
+import com.patbaumgartner.spring.migrator.core.MigrationPlan;
 import com.patbaumgartner.spring.migrator.core.PropertyFileScanner;
 import org.gradle.api.DefaultTask;
 import org.gradle.api.GradleException;
-import org.gradle.api.artifacts.Configuration;
-import org.gradle.api.artifacts.ResolvedArtifact;
+import org.gradle.api.file.ConfigurableFileCollection;
+import org.gradle.api.file.DirectoryProperty;
+import org.gradle.api.provider.ListProperty;
+import org.gradle.api.provider.Property;
+import org.gradle.api.tasks.Classpath;
+import org.gradle.api.tasks.Input;
 import org.gradle.api.tasks.Internal;
 import org.gradle.work.DisableCachingByDefault;
 
-@DisableCachingByDefault(because = "Task reads project configuration and external metadata at execution time")
+/**
+ * Shared behaviour of the analyze and migrate tasks.
+ * <p>
+ * Every input is a lazy Gradle property populated at configuration time. Nothing reaches
+ * for {@code Task.project} while executing, which is what makes the tasks usable with the
+ * configuration cache.
+ */
+@DisableCachingByDefault(because = "The task reads and rewrites source files rather than producing a cacheable output")
 public abstract class AbstractMigrationTask extends DefaultTask {
 
-	private SpringBootPropertiesMigratorExtension extension;
+	/**
+	 * Returns the glob patterns selecting the configuration files to inspect.
+	 * @return the include patterns
+	 */
+	@Input
+	public abstract ListProperty<String> getIncludes();
 
+	/**
+	 * Returns when the build should fail: {@code never}, {@code manual} or {@code any}.
+	 * @return the failure policy name
+	 */
+	@Input
+	public abstract Property<String> getFailOn();
+
+	/**
+	 * Returns whether the migrate task should report without writing anything.
+	 * @return whether to run dry
+	 */
+	@Input
+	public abstract Property<Boolean> getDryRun();
+
+	/**
+	 * Returns the Spring Boot version shown in the report.
+	 * @return the version override
+	 */
+	@Input
+	@org.gradle.api.tasks.Optional
+	public abstract Property<String> getSpringBootVersion();
+
+	/**
+	 * Returns the optional report path, relative to the project directory.
+	 * @return the report path
+	 */
+	@Input
+	@org.gradle.api.tasks.Optional
+	public abstract Property<String> getReportFile();
+
+	/**
+	 * Returns the classpath whose entries are searched for configuration metadata.
+	 * @return the resolved project classpath
+	 */
+	@Classpath
+	public abstract ConfigurableFileCollection getClasspath();
+
+	/**
+	 * Returns the project directory that include patterns are relative to.
+	 * @return the project directory
+	 */
 	@Internal
-	public SpringBootPropertiesMigratorExtension getExtension() {
-		return this.extension;
-	}
+	public abstract DirectoryProperty getProjectDirectory();
 
-	public void setExtension(SpringBootPropertiesMigratorExtension extension) {
-		this.extension = extension;
-	}
-
+	/**
+	 * Analyses the project and, when asked to and allowed to, writes the result.
+	 * @param apply whether this task is permitted to rewrite files
+	 */
 	protected void runMigration(boolean apply) {
-		if (this.extension == null) {
-			throw new GradleException("SpringBootPropertiesMigratorExtension has not been set");
+		FailurePolicy policy = parsePolicy();
+		Path projectPath = getProjectDirectory().get().getAsFile().toPath();
+		List<String> includes = getIncludes().get().isEmpty() ? PropertyFileScanner.defaultIncludes()
+				: getIncludes().get();
+
+		PropertyFileScanner.ScanResult scan = PropertyFileScanner.scan(projectPath, includes);
+		scan.warnings().forEach((warning) -> getLogger().warn(warning));
+		if (scan.files().isEmpty()) {
+			getLogger().lifecycle("No configuration files matched {}.", includes);
+			return;
 		}
+
+		boolean writing = apply && !getDryRun().get();
+		MigrationPlan plan = analyze(projectPath, scan.files());
+		String report = plan.render(writing && plan.hasPendingWrites());
+		getLogger().lifecycle(System.lineSeparator() + report);
+		plan.diagnostics().forEach((diagnostic) -> getLogger().warn(diagnostic));
+		writeReport(projectPath, report);
+
+		// Decide before mutating, so a failing policy never leaves files half migrated.
+		if (policy.isViolatedBy(plan)) {
+			throw new GradleException(
+					"Spring Boot properties migration failed: " + policy.describeViolation(plan) + ".");
+		}
+		if (writing) {
+			applyPlan(plan);
+		}
+	}
+
+	private MigrationPlan analyze(Path projectPath, List<Path> files) {
+		List<Path> classpath = new ArrayList<>();
+		for (File entry : getClasspath().getFiles()) {
+			classpath.add(entry.toPath());
+		}
+
+		Optional<String> version = GradleSpringBootVersionDetector.detect(classpath,
+				getSpringBootVersion().getOrNull());
+		version.ifPresent((detected) -> getLogger().lifecycle("Detected Spring Boot version: {}", detected));
 
 		try {
-			Path projectPath = getProject().getProjectDir().toPath();
-			List<String> includes = this.extension.getIncludes();
-			if (includes == null || includes.isEmpty()) {
-				includes = PropertyFileScanner.defaultIncludes();
-			}
-
-			List<Path> files = PropertyFileScanner.scan(projectPath, includes);
-			if (files.isEmpty()) {
-				getLogger().lifecycle("No property files found for configured includes.");
-				return;
-			}
-
-			Set<File> jars = resolveClasspathArtifacts();
-			Optional<String> detectedVersion = GradleSpringBootVersionDetector.detect(jars,
-					this.extension.getSpringBootVersion());
-			detectedVersion.ifPresent((version) -> getLogger().lifecycle("Detected Spring Boot version: {}", version));
-
-			var repository = GradleMetadataRepositoryLoader.loadFromArtifacts(jars);
-			Map<String, DeprecatedProperty> deprecatedByKey = MigrationEngine
-				.toDeprecatedMap(repository.getAllProperties());
-
-			MigrationEngine engine = new MigrationEngine();
-			MigrationRunResult result = engine.run(projectPath, files, deprecatedByKey,
-					apply && !this.extension.isDryRun());
-			String summary = result.renderSummary(!apply || this.extension.isDryRun());
-			getLogger().lifecycle(System.lineSeparator() + summary);
-
-			if (this.extension.getReportFile() != null && !this.extension.getReportFile().isBlank()) {
-				Path output = projectPath.resolve(this.extension.getReportFile()).normalize();
-				if (output.getParent() != null) {
-					Files.createDirectories(output.getParent());
-				}
-				Files.writeString(output, summary, StandardCharsets.UTF_8);
-				getLogger().lifecycle("Wrote migration report to {}", output);
-			}
-
-			if (this.extension.isFailOnError() && !result.getUnsupported().isEmpty()) {
-				throw new GradleException("Unsupported deprecated properties found: " + result.getUnsupported().size());
-			}
+			DeprecationCatalog catalog = DeprecationCatalog
+				.from(MetadataRepositoryLoader.load(classpath).getAllProperties());
+			return new MigrationEngine().plan(projectPath, files, catalog, version.orElse(null));
 		}
 		catch (IOException ex) {
-			throw new GradleException("Failed running Spring Boot properties migration", ex);
+			throw new GradleException("Failed reading Spring Boot configuration metadata", ex);
 		}
 	}
 
-	private Set<File> resolveClasspathArtifacts() {
-		List<Configuration> candidates = new ArrayList<>();
-		Configuration runtimeClasspath = getProject().getConfigurations().findByName("runtimeClasspath");
-		if (runtimeClasspath != null && runtimeClasspath.isCanBeResolved()) {
-			candidates.add(runtimeClasspath);
+	private void applyPlan(MigrationPlan plan) {
+		try {
+			new MigrationEngine().apply(plan);
 		}
-		Configuration compileClasspath = getProject().getConfigurations().findByName("compileClasspath");
-		if (compileClasspath != null && compileClasspath.isCanBeResolved()) {
-			candidates.add(compileClasspath);
+		catch (IOException ex) {
+			throw new GradleException("Failed writing migrated configuration files", ex);
 		}
+	}
 
-		return candidates.stream()
-			.flatMap((config) -> config.getResolvedConfiguration().getResolvedArtifacts().stream())
-			.map(ResolvedArtifact::getFile)
-			.filter((file) -> file.getName().endsWith(".jar"))
-			.sorted(Comparator.comparing(File::getName))
-			.collect(Collectors.toCollection(java.util.LinkedHashSet::new));
+	private void writeReport(Path projectPath, String report) {
+		String configured = getReportFile().getOrNull();
+		if (configured == null || configured.isBlank()) {
+			return;
+		}
+		try {
+			Path output = projectPath.resolve(configured).normalize();
+			if (output.getParent() != null) {
+				Files.createDirectories(output.getParent());
+			}
+			Files.writeString(output, report, StandardCharsets.UTF_8);
+			getLogger().lifecycle("Wrote migration report to {}", output);
+		}
+		catch (IOException ex) {
+			throw new GradleException("Failed writing migration report to " + configured, ex);
+		}
+	}
+
+	private FailurePolicy parsePolicy() {
+		try {
+			return FailurePolicy.parse(getFailOn().getOrNull());
+		}
+		catch (IllegalArgumentException ex) {
+			throw new GradleException(ex.getMessage(), ex);
+		}
 	}
 
 }

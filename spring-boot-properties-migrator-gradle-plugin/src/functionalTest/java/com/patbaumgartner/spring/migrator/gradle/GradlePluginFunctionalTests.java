@@ -17,65 +17,120 @@ class GradlePluginFunctionalTests {
 	Path tempDir;
 
 	@Test
-	void analyzeTaskCreatesReportAndDoesNotMutateProperties() throws Exception {
-		Path projectDir = createSampleProject("server.max-http-header-size=16KB\n", false);
+	void analyzeReportsWithoutMutatingProperties() throws Exception {
+		Path projectDir = sampleProject("");
 
-		BuildResult result = GradleRunner.create()
-			.withProjectDir(projectDir.toFile())
-			.withArguments("springBootPropertiesMigratorAnalyze", "--stacktrace")
-			.withPluginClasspath()
-			.build();
-
-		String report = Files.readString(projectDir.resolve("build/reports/migration.txt"), StandardCharsets.UTF_8);
-		String appProperties = Files.readString(projectDir.resolve("src/main/resources/application.properties"),
-				StandardCharsets.UTF_8);
+		BuildResult result = run(projectDir, "springBootPropertiesMigratorAnalyze");
 
 		assertThat(result.getOutput()).contains("BUILD SUCCESSFUL");
-		assertThat(report).contains("Renamed keys:").contains("server.max-http-header-size");
-		assertThat(appProperties).contains("server.max-http-header-size=16KB");
+		assertThat(report(projectDir)).contains("server.max-http-header-size -> server.max-http-request-header-size");
+		assertThat(properties(projectDir)).contains("server.max-http-header-size=16KB");
 	}
 
 	@Test
-	void migrateTaskRewritesDeprecatedProperty() throws Exception {
-		Path projectDir = createSampleProject("server.max-http-header-size=16KB\n", false);
+	void migrateRewritesTheDeprecatedProperty() throws Exception {
+		Path projectDir = sampleProject("");
 
-		BuildResult result = GradleRunner.create()
-			.withProjectDir(projectDir.toFile())
-			.withArguments("springBootPropertiesMigrate", "--stacktrace")
-			.withPluginClasspath()
-			.build();
+		run(projectDir, "springBootPropertiesMigratorMigrate");
 
-		String appProperties = Files.readString(projectDir.resolve("src/main/resources/application.properties"),
-				StandardCharsets.UTF_8);
-
-		assertThat(result.getOutput()).contains("BUILD SUCCESSFUL");
-		assertThat(appProperties).contains("server.max-http-request-header-size=16KB");
+		assertThat(properties(projectDir)).contains("server.max-http-request-header-size=16KB");
 	}
 
 	@Test
-	void migrateTaskRespectsDryRunFlag() throws Exception {
-		Path projectDir = createSampleProject("server.max-http-header-size=16KB\n", true);
+	void migrateHonoursDryRun() throws Exception {
+		Path projectDir = sampleProject("dryRun = true");
+
+		run(projectDir, "springBootPropertiesMigratorMigrate");
+
+		assertThat(properties(projectDir)).contains("server.max-http-header-size=16KB");
+	}
+
+	@Test
+	void tasksAreCompatibleWithTheConfigurationCache() throws Exception {
+		Path projectDir = sampleProject("");
+
+		BuildResult first = run(projectDir, "springBootPropertiesMigratorAnalyze", "--configuration-cache");
+		assertThat(first.getOutput()).contains("BUILD SUCCESSFUL");
+
+		BuildResult second = run(projectDir, "springBootPropertiesMigratorAnalyze", "--configuration-cache");
+		assertThat(second.getOutput()).contains("BUILD SUCCESSFUL").contains("Configuration cache entry reused");
+	}
+
+	@Test
+	void migrateIsIdempotent() throws Exception {
+		Path projectDir = sampleProject("");
+
+		run(projectDir, "springBootPropertiesMigratorMigrate");
+		String afterFirst = properties(projectDir);
+		run(projectDir, "springBootPropertiesMigratorMigrate");
+
+		assertThat(properties(projectDir)).isEqualTo(afterFirst);
+	}
+
+	@Test
+	void failOnAnyFailsTheBuildAndLeavesFilesAlone() throws Exception {
+		Path projectDir = sampleProject("failOn = 'any'");
 
 		BuildResult result = GradleRunner.create()
 			.withProjectDir(projectDir.toFile())
-			.withArguments("springBootPropertiesMigrate", "--stacktrace")
+			.withArguments("springBootPropertiesMigratorMigrate", "--stacktrace")
 			.withPluginClasspath()
-			.build();
+			.buildAndFail();
 
-		String appProperties = Files.readString(projectDir.resolve("src/main/resources/application.properties"),
-				StandardCharsets.UTF_8);
-
-		assertThat(result.getOutput()).contains("BUILD SUCCESSFUL");
-		assertThat(appProperties).contains("server.max-http-header-size=16KB");
+		assertThat(result.getOutput()).contains("deprecated propert");
+		assertThat(properties(projectDir)).contains("server.max-http-header-size=16KB");
 	}
 
-	private Path createSampleProject(String propertiesContent, boolean dryRun) throws Exception {
+	@Test
+	void rejectsAnUnknownFailOnValue() throws Exception {
+		Path projectDir = sampleProject("failOn = 'sometimes'");
+
+		BuildResult result = GradleRunner.create()
+			.withProjectDir(projectDir.toFile())
+			.withArguments("springBootPropertiesMigratorAnalyze")
+			.withPluginClasspath()
+			.buildAndFail();
+
+		assertThat(result.getOutput()).contains("Unknown failOn value 'sometimes'");
+	}
+
+	@Test
+	void keepsThePreviousMigrateTaskNameWorking() throws Exception {
+		Path projectDir = sampleProject("");
+
+		BuildResult result = run(projectDir, "springBootPropertiesMigrate");
+
+		assertThat(result.getOutput()).contains("BUILD SUCCESSFUL");
+		assertThat(properties(projectDir)).contains("server.max-http-request-header-size=16KB");
+	}
+
+	private BuildResult run(Path projectDir, String... arguments) {
+		String[] withStacktrace = new String[arguments.length + 1];
+		System.arraycopy(arguments, 0, withStacktrace, 0, arguments.length);
+		withStacktrace[arguments.length] = "--stacktrace";
+		return GradleRunner.create()
+			.withProjectDir(projectDir.toFile())
+			.withArguments(withStacktrace)
+			.withPluginClasspath()
+			.build();
+	}
+
+	private String properties(Path projectDir) throws Exception {
+		return Files.readString(projectDir.resolve("src/main/resources/application.properties"),
+				StandardCharsets.UTF_8);
+	}
+
+	private String report(Path projectDir) throws Exception {
+		return Files.readString(projectDir.resolve("build/reports/migration.txt"), StandardCharsets.UTF_8);
+	}
+
+	private Path sampleProject(String extraConfiguration) throws Exception {
 		Path projectDir = this.tempDir.resolve("project-" + System.nanoTime());
 		Files.createDirectories(projectDir);
 		Files.writeString(projectDir.resolve("settings.gradle"), "rootProject.name='sample-gradle-app'\n",
 				StandardCharsets.UTF_8);
 
-		String buildFile = """
+		Files.writeString(projectDir.resolve("build.gradle"), """
 				plugins {
 				    id 'java'
 				    id 'com.patbaumgartner.spring-boot-properties-migrator'
@@ -91,14 +146,13 @@ class GradlePluginFunctionalTests {
 
 				springBootPropertiesMigrator {
 				    reportFile = 'build/reports/migration.txt'
-				    dryRun = %s
+				    %s
 				}
-				""".formatted(dryRun);
-		Files.writeString(projectDir.resolve("build.gradle"), buildFile, StandardCharsets.UTF_8);
+				""".formatted(extraConfiguration), StandardCharsets.UTF_8);
 
 		Path propertiesFile = projectDir.resolve("src/main/resources/application.properties");
 		Files.createDirectories(propertiesFile.getParent());
-		Files.writeString(propertiesFile, propertiesContent, StandardCharsets.UTF_8);
+		Files.writeString(propertiesFile, "server.max-http-header-size=16KB\n", StandardCharsets.UTF_8);
 		return projectDir;
 	}
 
