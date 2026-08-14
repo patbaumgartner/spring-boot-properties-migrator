@@ -13,6 +13,12 @@ import org.springframework.boot.configurationmetadata.Deprecation;
  */
 public record DeprecatedProperty(String key, String replacement, String reason, Deprecation.Level level) {
 
+	/**
+	 * Creates a deprecation whose level the metadata did not state.
+	 * @param key the canonical name of the deprecated property
+	 * @param replacement the replacement property name, or {@code null}
+	 * @param reason the short reason, or {@code null}
+	 */
 	public DeprecatedProperty(String key, String replacement, String reason) {
 		this(key, replacement, reason, null);
 	}

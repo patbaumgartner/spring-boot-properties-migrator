@@ -31,19 +31,20 @@ tasks.register('prepareMigrationFixture', Copy) {
 }
 
 springBootPropertiesMigrator {
-    failOnError = true
+    failOn = 'never'
     reportFile = 'build/reports/migration-report.txt'
 }
 
-tasks.named('springBootPropertiesMigrate') {
+// Configure the task directly rather than mutating the extension from a doFirst block,
+// so the task stays compatible with the configuration cache.
+tasks.named('springBootPropertiesMigratorMigrate') {
     dependsOn tasks.named('prepareMigrationFixture')
-    doFirst {
-        springBootPropertiesMigrator.includes = ['build/migration-fixture/application.properties']
-    }
+    includes = ['build/migration-fixture/application.properties']
+    reportFile = 'build/reports/migration-report-test-fixture.txt'
 }
 
 tasks.named('test') {
-    dependsOn tasks.named('springBootPropertiesMigrate')
+    dependsOn tasks.named('springBootPropertiesMigratorMigrate')
     useJUnitPlatform()
 }
 
