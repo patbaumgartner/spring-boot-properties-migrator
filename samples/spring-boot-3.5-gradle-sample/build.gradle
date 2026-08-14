@@ -47,11 +47,3 @@ tasks.named('test') {
     dependsOn tasks.named('springBootPropertiesMigratorMigrate')
     useJUnitPlatform()
 }
-
-tasks.named('compileJava') {
-    dependsOn(tasks.named('formatMain'))
-}
-
-tasks.named('compileTestJava') {
-    dependsOn(tasks.named('formatTest'))
-}
