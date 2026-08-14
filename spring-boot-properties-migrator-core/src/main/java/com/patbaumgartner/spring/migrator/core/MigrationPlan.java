@@ -1,10 +1,8 @@
 package com.patbaumgartner.spring.migrator.core;
 
 import java.nio.file.Path;
-import java.util.Collections;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 
 /**
  * The outcome of analysing a project: every deprecated property that was found, why the
@@ -76,14 +74,6 @@ public final class MigrationPlan {
 	 */
 	public boolean hasPendingWrites() {
 		return !this.pendingContent.isEmpty();
-	}
-
-	/**
-	 * Returns the files the plan would rewrite.
-	 * @return the affected files
-	 */
-	public Set<Path> affectedFiles() {
-		return Collections.unmodifiableSet(this.pendingContent.keySet());
 	}
 
 	Map<Path, String> pendingContent() {

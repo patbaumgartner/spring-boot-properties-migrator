@@ -22,8 +22,8 @@ public record MigrationChange(String file, int line, String key, String replacem
 		return new MigrationChange(file, line, key, replacement, Outcome.MANUAL, reason, advice);
 	}
 
-	static MigrationChange unsupported(String file, int line, String key, String reason) {
-		return new MigrationChange(file, line, key, null, Outcome.UNSUPPORTED, reason, null);
+	static MigrationChange unsupported(String file, int line, String key, String reason, String advice) {
+		return new MigrationChange(file, line, key, null, Outcome.UNSUPPORTED, reason, advice);
 	}
 
 }

@@ -139,7 +139,8 @@ public final class MigrationEngine {
 		String key = occurrence.name();
 
 		if (!property.hasReplacement()) {
-			return MigrationChange.unsupported(relativePath, line, key, reason);
+			return MigrationChange.unsupported(relativePath, line, key, reason, property.isRemoved()
+					? "Spring Boot no longer reads this property, so it currently has no effect" : null);
 		}
 		if (candidate.replacement().isEmpty()) {
 			return MigrationChange.manual(relativePath, line, key, property.replacement(), reason,
