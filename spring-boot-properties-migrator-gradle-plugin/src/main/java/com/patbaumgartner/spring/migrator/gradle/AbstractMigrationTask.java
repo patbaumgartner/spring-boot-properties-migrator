@@ -15,6 +15,8 @@ import com.patbaumgartner.spring.migrator.core.MetadataRepositoryLoader;
 import com.patbaumgartner.spring.migrator.core.MigrationEngine;
 import com.patbaumgartner.spring.migrator.core.MigrationPlan;
 import com.patbaumgartner.spring.migrator.core.PropertyFileScanner;
+import com.patbaumgartner.spring.migrator.core.UnknownKeyOptions;
+import com.patbaumgartner.spring.migrator.core.UnknownKeyPolicy;
 import org.gradle.api.DefaultTask;
 import org.gradle.api.GradleException;
 import org.gradle.api.file.ConfigurableFileCollection;
@@ -74,6 +76,28 @@ public abstract class AbstractMigrationTask extends DefaultTask {
 	public abstract Property<String> getReportFile();
 
 	/**
+	 * Returns whether to report configuration keys that no metadata describes:
+	 * {@code off}, {@code report} or {@code fail}.
+	 * @return the unknown key policy name
+	 */
+	@Input
+	public abstract Property<String> getUnknownKeys();
+
+	/**
+	 * Returns the namespaces to inspect for unrecognised keys instead of the defaults.
+	 * @return the namespaces to inspect
+	 */
+	@Input
+	public abstract ListProperty<String> getUnknownKeyIncludes();
+
+	/**
+	 * Returns the exact keys or prefixes never to report as unrecognised.
+	 * @return the suppressed keys and prefixes
+	 */
+	@Input
+	public abstract ListProperty<String> getUnknownKeyExcludes();
+
+	/**
 	 * Returns the classpath whose entries are searched for configuration metadata.
 	 * @return the resolved project classpath
 	 */
@@ -93,6 +117,7 @@ public abstract class AbstractMigrationTask extends DefaultTask {
 	 */
 	protected void runMigration(boolean apply) {
 		FailurePolicy policy = parsePolicy();
+		UnknownKeyPolicy unknownKeyPolicy = parseUnknownKeyPolicy();
 		Path projectPath = getProjectDirectory().get().getAsFile().toPath();
 		List<String> includes = getIncludes().get().isEmpty() ? PropertyFileScanner.defaultIncludes()
 				: getIncludes().get();
@@ -105,7 +130,7 @@ public abstract class AbstractMigrationTask extends DefaultTask {
 		}
 
 		boolean writing = apply && !getDryRun().get();
-		MigrationPlan plan = analyze(projectPath, scan.files());
+		MigrationPlan plan = analyze(projectPath, scan.files(), unknownKeyPolicy);
 		String report = plan.render(writing && plan.hasPendingWrites());
 		getLogger().lifecycle(System.lineSeparator() + report);
 		plan.diagnostics().forEach((diagnostic) -> getLogger().warn(diagnostic));
@@ -116,12 +141,16 @@ public abstract class AbstractMigrationTask extends DefaultTask {
 			throw new GradleException(
 					"Spring Boot properties migration failed: " + policy.describeViolation(plan) + ".");
 		}
+		if (unknownKeyPolicy.isViolatedBy(plan)) {
+			throw new GradleException(
+					"Spring Boot properties migration failed: " + unknownKeyPolicy.describeViolation(plan) + ".");
+		}
 		if (writing) {
 			applyPlan(plan);
 		}
 	}
 
-	private MigrationPlan analyze(Path projectPath, List<Path> files) {
+	private MigrationPlan analyze(Path projectPath, List<Path> files, UnknownKeyPolicy unknownKeyPolicy) {
 		List<Path> classpath = new ArrayList<>();
 		for (File entry : getClasspath().getFiles()) {
 			classpath.add(entry.toPath());
@@ -134,7 +163,9 @@ public abstract class AbstractMigrationTask extends DefaultTask {
 		try {
 			DeprecationCatalog catalog = DeprecationCatalog
 				.from(MetadataRepositoryLoader.load(classpath).getAllProperties());
-			return new MigrationEngine().plan(projectPath, files, catalog, version.orElse(null));
+			UnknownKeyOptions unknownKeys = new UnknownKeyOptions(unknownKeyPolicy, getUnknownKeyIncludes().get(),
+					getUnknownKeyExcludes().get());
+			return new MigrationEngine().plan(projectPath, files, catalog, version.orElse(null), unknownKeys);
 		}
 		catch (IOException ex) {
 			throw new GradleException("Failed reading Spring Boot configuration metadata", ex);
@@ -171,6 +202,15 @@ public abstract class AbstractMigrationTask extends DefaultTask {
 	private FailurePolicy parsePolicy() {
 		try {
 			return FailurePolicy.parse(getFailOn().getOrNull());
+		}
+		catch (IllegalArgumentException ex) {
+			throw new GradleException(ex.getMessage(), ex);
+		}
+	}
+
+	private UnknownKeyPolicy parseUnknownKeyPolicy() {
+		try {
+			return UnknownKeyPolicy.parse(getUnknownKeys().getOrNull());
 		}
 		catch (IllegalArgumentException ex) {
 			throw new GradleException(ex.getMessage(), ex);

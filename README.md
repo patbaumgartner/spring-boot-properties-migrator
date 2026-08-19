@@ -32,6 +32,12 @@ metadata, of the 188 deprecated properties that name a replacement:
 This tool therefore **only rewrites a key when it can prove the edit is safe**, and reports
 everything else with the exact reason and target key. It never guesses.
 
+The same restraint applies in the other direction. Opt in with `unknownKeys` and it will
+also point out keys that no metadata describes at all — the ones a deprecation scan is
+structurally blind to, because a property Spring Boot deleted outright leaves nothing
+behind to match against. Those are only ever reported, never removed: absence from the
+metadata does not prove that nothing reads the key.
+
 It also never reformats your files. Documents are parsed for structure and only the
 character span of a key is replaced, so comments, indentation, quoting style, CRLF line
 endings, a byte-order mark and a missing trailing newline all survive untouched. A
@@ -138,6 +144,16 @@ Needs manual action (1)
 Summary: 2 migrated, 1 manual, 0 without replacement
 ```
 
+With `unknownKeys` switched on, an extra advisory section is appended:
+
+```text
+Not found in resolved metadata (1)
+  src/main/resources/application.properties:11  server.servlet.context-pathh
+      why: no property or aggregate ancestor of this name exists in the configuration metadata on the resolved project classpath, so it may have been removed or misspelled, or it may be read by code that publishes no metadata; nothing was changed
+
+Summary: 2 migrated, 1 manual, 0 without replacement, 1 not found in metadata
+```
+
 ## Configuration Reference
 
 | Name | Type | Default | Description |
@@ -147,6 +163,9 @@ Summary: 2 migrated, 1 manual, 0 without replacement
 | `reportFile` | string | none | Optional file to write the report to |
 | `springBootVersion` | string | detected | Version shown in the report |
 | `dryRun` | boolean | `false` | Migrate task/goal only: report without writing |
+| `unknownKeys` | string | `off` | `off`, `report` or `fail`: flag keys no metadata describes |
+| `unknownKeyIncludes` | list | Spring Boot's own | Namespaces to inspect for unrecognised keys |
+| `unknownKeyExcludes` | list | none | Exact keys or prefixes never to report |
 | `skip` | boolean | `false` | Maven only: skip the goal entirely |
 
 Default `includes` cover `application.properties`, `application.yml`, `application.yaml`
@@ -165,6 +184,10 @@ some files migrated and others not.
 
 `springBootVersion` only changes the version shown in the report. Metadata is always read
 from the resolved project classpath.
+
+`unknownKeys` is evaluated separately from `failOn`, and never influences it. An
+unrecognised key is an *absence of evidence*, not a deprecation the metadata proved, so it
+must not break a build configured to fail only on real deprecations.
 
 ## When a Key Is Migrated Automatically
 
@@ -214,9 +237,43 @@ Metadata is read from the jars your project resolves, so the plugins know exactl
 deprecations your current Spring Boot version still describes. That makes them useful for
 cleaning up before an upgrade, and for catching properties a dependency has deprecated.
 
-A property that a newer Spring Boot removed *and* dropped from its metadata cannot be
-detected, because nothing on the classpath describes it any more. Run the migration
-**before** bumping Spring Boot, or once per intermediate version.
+A property that a newer Spring Boot removed *and* dropped from its metadata is not a
+deprecation any more — nothing on the classpath describes it, so there is no rename to
+apply. Run the migration **before** bumping Spring Boot, or once per intermediate version,
+so each version's deprecations are drained while its metadata still documents them.
+
+To catch what is left behind after an upgrade, switch on the unrecognised-key check:
+
+```xml
+<unknownKeys>report</unknownKeys>
+```
+
+```groovy
+springBootPropertiesMigrator { unknownKeys = 'report' }
+```
+
+It reports keys that no metadata on the resolved classpath describes, and it **never
+rewrites or removes them**. Absence from the metadata does not prove the key is dead: it
+may be read by your own code, by a library that publishes no metadata, or by a module
+whose annotation processor did not run. Deleting it automatically could silently change
+behaviour, so the check is advisory by design and off by default.
+
+To keep it quiet enough to trust, it deliberately under-reports:
+
+- only namespaces Spring Boot owns (`spring`, `server`, `management`, `logging`), and only
+  when the resolved metadata proves it knows that namespace — an absent Actuator means
+  `management.*` is skipped rather than condemned;
+- map entries and indexed list elements are resolved against the aggregate property that
+  declares them, so `logging.level.com.example` and `clients[0].timeout` stay quiet;
+- keys nested below a type the metadata never decomposes are left alone;
+- YAML structural parents are ignored — only keys that carry a value are judged;
+- keys built from placeholders such as `${...}` are skipped;
+- bootstrap keys Spring Boot reads outside property binding (`spring.config.*`,
+  `spring.profiles.active`, `spring.application.name`, `spring.autoconfigure.exclude`, …)
+  are allowlisted.
+
+Use `unknownKeyExcludes` for anything left over, and `unknownKeyIncludes` to point the
+check at a namespace of your own.
 
 If no configuration metadata is found at all, the report says so rather than claiming the
 project is clean.
@@ -226,9 +283,10 @@ project is clean.
 - `samples/spring-boot-3.5-maven-sample`
 - `samples/spring-boot-3.5-gradle-sample`
 
-Both use real Spring Boot 3.5 properties and assert both halves of the behaviour: the safe
-renames are applied, and the enum-typed `server.forward-headers-strategy` rename is
-reported instead of breaking the value.
+Both use real Spring Boot 3.5 properties and assert all three behaviours: the safe renames
+are applied, the enum-typed `server.forward-headers-strategy` rename is reported instead of
+breaking the value, and — with `unknownKeys = report` — a key no metadata describes
+(`server.servlet.context-pathh`, a typo) is reported without being rewritten or removed.
 
 ## Upgrading from 0.1.x
 

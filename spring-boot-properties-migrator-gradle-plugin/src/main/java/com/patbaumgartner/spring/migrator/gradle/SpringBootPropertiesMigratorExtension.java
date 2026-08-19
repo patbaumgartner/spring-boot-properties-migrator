@@ -20,6 +20,12 @@ public class SpringBootPropertiesMigratorExtension {
 
 	private boolean dryRun;
 
+	private String unknownKeys = "off";
+
+	private List<String> unknownKeyIncludes = new ArrayList<>();
+
+	private List<String> unknownKeyExcludes = new ArrayList<>();
+
 	/**
 	 * Returns the glob patterns, relative to the project directory, selecting the
 	 * configuration files to inspect.
@@ -102,6 +108,60 @@ public class SpringBootPropertiesMigratorExtension {
 	 */
 	public void setDryRun(boolean dryRun) {
 		this.dryRun = dryRun;
+	}
+
+	/**
+	 * Returns whether to report configuration keys that no metadata on the resolved
+	 * classpath describes: {@code off}, {@code report}, or {@code fail}.
+	 * <p>
+	 * This is advisory. A key can be absent because Spring Boot removed it, or simply
+	 * because the code that reads it publishes no metadata, so it never rewrites or
+	 * removes anything and never affects {@code failOn}.
+	 * @return the unknown key policy name
+	 */
+	public String getUnknownKeys() {
+		return this.unknownKeys;
+	}
+
+	/**
+	 * Sets whether to report keys the metadata does not describe.
+	 * @param unknownKeys one of {@code off}, {@code report} or {@code fail}
+	 */
+	public void setUnknownKeys(String unknownKeys) {
+		this.unknownKeys = unknownKeys;
+	}
+
+	/**
+	 * Returns the namespaces to inspect for unrecognised keys instead of the Spring Boot
+	 * ones the check defaults to.
+	 * @return the namespaces to inspect
+	 */
+	public List<String> getUnknownKeyIncludes() {
+		return this.unknownKeyIncludes;
+	}
+
+	/**
+	 * Sets the namespaces to inspect for unrecognised keys.
+	 * @param unknownKeyIncludes the namespaces to inspect
+	 */
+	public void setUnknownKeyIncludes(List<String> unknownKeyIncludes) {
+		this.unknownKeyIncludes = unknownKeyIncludes;
+	}
+
+	/**
+	 * Returns the exact keys or prefixes never to report as unrecognised.
+	 * @return the suppressed keys and prefixes
+	 */
+	public List<String> getUnknownKeyExcludes() {
+		return this.unknownKeyExcludes;
+	}
+
+	/**
+	 * Sets the exact keys or prefixes never to report as unrecognised.
+	 * @param unknownKeyExcludes the suppressed keys and prefixes
+	 */
+	public void setUnknownKeyExcludes(List<String> unknownKeyExcludes) {
+		this.unknownKeyExcludes = unknownKeyExcludes;
 	}
 
 }

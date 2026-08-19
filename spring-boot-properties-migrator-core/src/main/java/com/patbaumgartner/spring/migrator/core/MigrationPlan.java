@@ -61,11 +61,24 @@ public final class MigrationPlan {
 	}
 
 	/**
+	 * Returns every deprecation finding, excluding keys that are merely absent from the
+	 * metadata.
+	 * <p>
+	 * Failure policies are expressed in terms of deprecations only, so an advisory
+	 * unrecognised key must never make a build fail that was configured to fail on
+	 * deprecations.
+	 * @return the changes whose outcome states something the metadata proved
+	 */
+	public List<MigrationChange> deprecations() {
+		return this.changes.stream().filter((change) -> change.outcome() != Outcome.UNKNOWN).toList();
+	}
+
+	/**
 	 * Returns whether any deprecated property was found.
 	 * @return whether the plan has findings
 	 */
 	public boolean hasFindings() {
-		return !this.changes.isEmpty();
+		return !deprecations().isEmpty();
 	}
 
 	/**
@@ -100,20 +113,25 @@ public final class MigrationPlan {
 		appendSection(report, newline, applied ? "Migrated" : "Ready to migrate", Outcome.MIGRATED);
 		appendSection(report, newline, "Needs manual action", Outcome.MANUAL);
 		appendSection(report, newline, "Deprecated with no replacement", Outcome.UNSUPPORTED);
+		appendSection(report, newline, "Not found in resolved metadata", Outcome.UNKNOWN);
 
-		if (!this.changes.isEmpty()) {
+		if (!deprecations().isEmpty()) {
 			report.append("Summary: ")
 				.append(changes(Outcome.MIGRATED).size())
 				.append(applied ? " migrated, " : " ready, ")
 				.append(changes(Outcome.MANUAL).size())
 				.append(" manual, ")
 				.append(changes(Outcome.UNSUPPORTED).size())
-				.append(" without replacement")
-				.append(newline);
+				.append(" without replacement");
 		}
 		else {
-			report.append("No deprecated properties found.").append(newline);
+			report.append("No deprecated properties found.");
 		}
+		int unknown = changes(Outcome.UNKNOWN).size();
+		if (unknown > 0) {
+			report.append(deprecations().isEmpty() ? " " : ", ").append(unknown).append(" not found in metadata");
+		}
+		report.append(newline);
 
 		if (!this.diagnostics.isEmpty()) {
 			report.append(newline).append("Warnings").append(newline);

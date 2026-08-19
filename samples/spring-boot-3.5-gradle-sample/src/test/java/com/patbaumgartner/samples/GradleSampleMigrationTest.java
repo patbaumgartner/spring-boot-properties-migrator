@@ -10,7 +10,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 /**
  * Verifies the plugin against real Spring Boot 3.5 metadata: renames that are safe are
- * applied, and a rename whose value type changes is deliberately left alone.
+ * applied, a rename whose value type changes is deliberately left alone, and a key the
+ * metadata does not describe at all is reported without being touched.
  */
 class GradleSampleMigrationTest {
 
@@ -40,6 +41,17 @@ class GradleSampleMigrationTest {
 		assertThat(Files.readString(report)).contains("Needs manual action")
 			.contains("server.use-forward-headers -> server.forward-headers-strategy")
 			.contains("converted by hand");
+	}
+
+	@Test
+	void reportsKeysTheMetadataDoesNotDescribeWithoutTouchingThem() throws IOException {
+		// server.servlet.context-pathh is a typo, so no metadata describes it. The
+		// deprecation scan is blind to it; only the unknownKeys check surfaces it.
+		Path report = Path.of("build", "reports", "migration-report-test-fixture.txt");
+		assertThat(Files.readString(report)).contains("Not found in resolved metadata")
+			.contains("server.servlet.context-pathh");
+
+		assertThat(migratedFixture()).contains("server.servlet.context-pathh=/demo");
 	}
 
 	@Test

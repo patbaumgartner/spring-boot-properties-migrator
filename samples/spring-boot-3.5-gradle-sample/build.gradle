@@ -32,6 +32,7 @@ tasks.register('prepareMigrationFixture', Copy) {
 
 springBootPropertiesMigrator {
     failOn = 'never'
+    unknownKeys = 'report'
     reportFile = 'build/reports/migration-report.txt'
 }
 

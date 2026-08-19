@@ -124,6 +124,79 @@ public final class DeprecationCatalog {
 	}
 
 	/**
+	 * Returns whether the metadata describes the given key, honouring the fact that
+	 * aggregate properties are declared at their prefix rather than per entry.
+	 * <p>
+	 * A {@code Map}-typed property such as {@code logging.level} stands for every key
+	 * written below it, and a collection-typed property such as
+	 * {@code spring.config.import} stands for every indexed element. Without that rule
+	 * every map entry in a project would look unrecognised.
+	 * @param key the property name exactly as written in the configuration file
+	 * @return whether the key is backed by a metadata property
+	 */
+	public boolean isKnown(String key) {
+		if (this.types.containsKey(PropertyName.uniform(key))) {
+			return true;
+		}
+		for (String ancestor : PropertyName.ancestors(key)) {
+			String uniformAncestor = PropertyName.uniform(ancestor);
+			if (!this.types.containsKey(uniformAncestor)) {
+				continue;
+			}
+			if (absorbsDescendants(uniformAncestor)) {
+				return true;
+			}
+		}
+		return false;
+	}
+
+	/**
+	 * Returns whether a metadata property stands for keys written below it.
+	 * <p>
+	 * Aggregates do so by definition. So does any property whose type the metadata never
+	 * decomposes into child properties: the migrator cannot see inside it, and guessing
+	 * that a key below it is wrong would be exactly the false positive this check must
+	 * avoid.
+	 * @param uniformName the uniform name of the metadata property
+	 * @return whether descendants of the property count as known
+	 */
+	private boolean absorbsDescendants(String uniformName) {
+		if (AggregateTypes.isAggregate(this.types.get(uniformName))) {
+			return true;
+		}
+		return !hasChildren(uniformName);
+	}
+
+	private boolean hasChildren(String uniformName) {
+		String prefix = uniformName + ".";
+		for (String candidate : this.types.keySet()) {
+			if (candidate.startsWith(prefix)) {
+				return true;
+			}
+		}
+		return false;
+	}
+
+	/**
+	 * Returns whether the metadata describes at least one property in a namespace.
+	 * <p>
+	 * This is what tells an absent optional module apart from a wrong key. When Actuator
+	 * is not on the classpath nothing describes {@code management.*}, and every key a
+	 * project writes there would otherwise look unrecognised.
+	 * @param namespace the top-level namespace, such as {@code management}
+	 * @return whether any known property lives under the namespace
+	 */
+	public boolean describesNamespace(String namespace) {
+		String prefix = PropertyName.uniform(namespace) + ".";
+		for (String candidate : this.types.keySet()) {
+			if (candidate.startsWith(prefix)) {
+				return true;
+			}
+		}
+		return false;
+	}
+
+	/**
 	 * Returns whether the catalog holds no metadata at all, which usually means the
 	 * project classpath could not be resolved rather than that the project is clean.
 	 * @return whether no metadata was loaded

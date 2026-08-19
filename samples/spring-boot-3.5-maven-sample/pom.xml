@@ -41,6 +41,7 @@
         <configuration>
           <reportFile>target/reports/migration-report.txt</reportFile>
           <failOn>never</failOn>
+          <unknownKeys>report</unknownKeys>
         </configuration>
         <executions>
           <execution>

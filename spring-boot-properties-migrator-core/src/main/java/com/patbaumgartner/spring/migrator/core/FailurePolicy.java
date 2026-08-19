@@ -85,8 +85,8 @@ public enum FailurePolicy {
 			case MANUAL ->
 				manual + " deprecated propert" + ((manual == 1) ? "y needs" : "ies need") + " manual action and "
 						+ unsupported + " ha" + ((unsupported == 1) ? "s" : "ve") + " no replacement";
-			case ANY ->
-				plan.changes().size() + " deprecated propert" + ((plan.changes().size() == 1) ? "y" : "ies") + " found";
+			case ANY -> plan.deprecations().size() + " deprecated propert"
+					+ ((plan.deprecations().size() == 1) ? "y" : "ies") + " found";
 		};
 	}
 

@@ -42,6 +42,20 @@ public final class MigrationEngine {
 	 * @return the plan describing every finding and every pending write
 	 */
 	public MigrationPlan plan(Path rootDir, List<Path> files, DeprecationCatalog catalog, String springBootVersion) {
+		return plan(rootDir, files, catalog, springBootVersion, UnknownKeyOptions.disabled());
+	}
+
+	/**
+	 * Analyses the given files without modifying anything.
+	 * @param rootDir the project directory that paths are reported relative to
+	 * @param files the configuration files to inspect
+	 * @param catalog the deprecations known to the project classpath
+	 * @param springBootVersion the detected Spring Boot version, or {@code null}
+	 * @param unknownKeys how to treat keys the metadata does not describe
+	 * @return the plan describing every finding and every pending write
+	 */
+	public MigrationPlan plan(Path rootDir, List<Path> files, DeprecationCatalog catalog, String springBootVersion,
+			UnknownKeyOptions unknownKeys) {
 		List<MigrationChange> changes = new ArrayList<>();
 		Map<Path, String> pending = new LinkedHashMap<>();
 		List<String> diagnostics = new ArrayList<>();
@@ -51,8 +65,11 @@ public final class MigrationEngine {
 					+ "so no deprecated property can be detected. Check that the project's dependencies resolve.");
 		}
 
+		UnknownKeyDetector detector = (unknownKeys.policy().isEnabled() && !catalog.isEmpty())
+				? new UnknownKeyDetector(catalog, unknownKeys.includes(), unknownKeys.excludes()) : null;
+
 		for (Path file : files) {
-			planFile(rootDir, file, catalog, changes, pending, diagnostics);
+			planFile(rootDir, file, catalog, detector, changes, pending, diagnostics);
 		}
 		return new MigrationPlan(changes, pending, diagnostics, files.size(),
 				describeMetadata(catalog, springBootVersion));
@@ -72,8 +89,8 @@ public final class MigrationEngine {
 		}
 	}
 
-	private void planFile(Path rootDir, Path file, DeprecationCatalog catalog, List<MigrationChange> changes,
-			Map<Path, String> pending, List<String> diagnostics) {
+	private void planFile(Path rootDir, Path file, DeprecationCatalog catalog, UnknownKeyDetector detector,
+			List<MigrationChange> changes, Map<Path, String> pending, List<String> diagnostics) {
 		String relativePath = relativize(rootDir, file);
 		String raw;
 		try {
@@ -89,6 +106,10 @@ public final class MigrationEngine {
 
 		DocumentKeys document = parse(file, text);
 		List<Candidate> candidates = collectCandidates(document, catalog);
+
+		if (detector != null) {
+			collectUnknownKeys(document, detector, relativePath, changes);
+		}
 		if (candidates.isEmpty()) {
 			return;
 		}
@@ -109,6 +130,15 @@ public final class MigrationEngine {
 
 		if (!edits.isEmpty()) {
 			pending.put(file, (hasBom ? String.valueOf(BOM) : "") + applyEdits(text, edits));
+		}
+	}
+
+	private void collectUnknownKeys(DocumentKeys document, UnknownKeyDetector detector, String relativePath,
+			List<MigrationChange> changes) {
+		for (KeyOccurrence occurrence : document.keys()) {
+			if (detector.isUnknown(occurrence)) {
+				changes.add(MigrationChange.unknown(relativePath, occurrence.line(), occurrence.name()));
+			}
 		}
 	}
 

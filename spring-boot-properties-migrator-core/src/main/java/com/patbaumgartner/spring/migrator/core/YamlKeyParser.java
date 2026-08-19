@@ -74,6 +74,10 @@ final class YamlKeyParser {
 		}
 
 		private void walk(Node node, String path) {
+			walk(node, path, false);
+		}
+
+		private void walk(Node node, String path, boolean insideSequence) {
 			if (node == null || !this.visited.add(node)) {
 				return;
 			}
@@ -81,17 +85,17 @@ final class YamlKeyParser {
 				restrict("file uses YAML anchors or aliases");
 			}
 			if (node instanceof MappingNode mapping) {
-				walkMapping(mapping, path);
+				walkMapping(mapping, path, insideSequence);
 			}
 			else if (node instanceof SequenceNode sequence) {
 				List<Node> items = sequence.getValue();
 				for (int i = 0; i < items.size(); i++) {
-					walk(items.get(i), path + "[" + i + "]");
+					walk(items.get(i), path + "[" + i + "]", true);
 				}
 			}
 		}
 
-		private void walkMapping(MappingNode mapping, String path) {
+		private void walkMapping(MappingNode mapping, String path, boolean insideSequence) {
 			Set<String> seen = new HashSet<>();
 			for (NodeTuple tuple : mapping.getValue()) {
 				Node keyNode = tuple.getKeyNode();
@@ -104,10 +108,22 @@ final class YamlKeyParser {
 				if (!seen.add(PropertyName.uniform(fullName))) {
 					restrict("file declares the same key more than once");
 				}
+				Node valueNode = tuple.getValueNode();
 				this.keys.add(new KeyOccurrence(fullName, path, offsetOf(scalar.getStartMark()),
-						offsetOf(scalar.getEndMark()), scalar.getStartMark().getLine() + 1));
-				walk(tuple.getValueNode(), fullName);
+						offsetOf(scalar.getEndMark()), scalar.getStartMark().getLine() + 1,
+						!insideSequence && carriesValue(valueNode)));
+				walk(valueNode, fullName, insideSequence);
 			}
+		}
+
+		/**
+		 * Returns whether a key carries a value of its own. A mapping value means the key
+		 * only introduces nesting, so nothing is ever bound to the key itself.
+		 * @param valueNode the value the key maps to
+		 * @return whether the key is an effective property
+		 */
+		private boolean carriesValue(Node valueNode) {
+			return !(valueNode instanceof MappingNode);
 		}
 
 		private int offsetOf(Mark mark) {

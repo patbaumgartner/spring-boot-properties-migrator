@@ -14,6 +14,8 @@ import com.patbaumgartner.spring.migrator.core.MetadataRepositoryLoader;
 import com.patbaumgartner.spring.migrator.core.MigrationEngine;
 import com.patbaumgartner.spring.migrator.core.MigrationPlan;
 import com.patbaumgartner.spring.migrator.core.PropertyFileScanner;
+import com.patbaumgartner.spring.migrator.core.UnknownKeyOptions;
+import com.patbaumgartner.spring.migrator.core.UnknownKeyPolicy;
 import org.apache.maven.artifact.Artifact;
 import org.apache.maven.plugin.AbstractMojo;
 import org.apache.maven.plugin.MojoExecutionException;
@@ -61,6 +63,30 @@ abstract class AbstractMigratorMojo extends AbstractMojo {
 	protected String springBootVersion;
 
 	/**
+	 * Whether to report configuration keys that no metadata on the resolved classpath
+	 * describes: {@code off}, {@code report}, or {@code fail} to also break the build.
+	 * <p>
+	 * This is advisory. A key can be absent because Spring Boot removed it, or simply
+	 * because the code that reads it publishes no metadata, so it never rewrites or
+	 * removes anything and never affects {@code failOn}.
+	 */
+	@Parameter(property = PREFIX + "unknownKeys", defaultValue = "off")
+	protected String unknownKeys;
+
+	/**
+	 * Namespaces to inspect for unrecognised keys instead of the Spring Boot ones the
+	 * check defaults to.
+	 */
+	@Parameter
+	protected List<String> unknownKeyIncludes;
+
+	/**
+	 * Exact keys or prefixes never to report as unrecognised.
+	 */
+	@Parameter
+	protected List<String> unknownKeyExcludes;
+
+	/**
 	 * Skips the goal entirely.
 	 */
 	@Parameter(property = PREFIX + "skip", defaultValue = "false")
@@ -79,6 +105,7 @@ abstract class AbstractMigratorMojo extends AbstractMojo {
 		}
 
 		FailurePolicy policy = parsePolicy();
+		UnknownKeyPolicy unknownKeyPolicy = parseUnknownKeyPolicy();
 		Path baseDir = this.project.getBasedir().toPath();
 		List<String> effectiveIncludes = (this.includes == null || this.includes.isEmpty())
 				? PropertyFileScanner.defaultIncludes() : this.includes;
@@ -90,7 +117,7 @@ abstract class AbstractMigratorMojo extends AbstractMojo {
 			return;
 		}
 
-		MigrationPlan plan = analyze(baseDir, scan.files());
+		MigrationPlan plan = analyze(baseDir, scan.files(), unknownKeyPolicy);
 		String report = plan.render(applyChanges() && plan.hasPendingWrites());
 		getLog().info(System.lineSeparator() + report);
 		plan.diagnostics().forEach((diagnostic) -> getLog().warn(diagnostic));
@@ -101,12 +128,17 @@ abstract class AbstractMigratorMojo extends AbstractMojo {
 			throw new MojoFailureException(
 					"Spring Boot properties migration failed: " + policy.describeViolation(plan) + ".");
 		}
+		if (unknownKeyPolicy.isViolatedBy(plan)) {
+			throw new MojoFailureException(
+					"Spring Boot properties migration failed: " + unknownKeyPolicy.describeViolation(plan) + ".");
+		}
 		if (applyChanges()) {
 			applyPlan(plan);
 		}
 	}
 
-	private MigrationPlan analyze(Path baseDir, List<Path> files) throws MojoExecutionException {
+	private MigrationPlan analyze(Path baseDir, List<Path> files, UnknownKeyPolicy unknownKeyPolicy)
+			throws MojoExecutionException {
 		Optional<String> detectedVersion = (this.springBootVersion == null || this.springBootVersion.isBlank())
 				? MavenSpringBootVersionDetector.detect(this.project) : Optional.of(this.springBootVersion);
 		detectedVersion.ifPresent((version) -> getLog().info("Detected Spring Boot version: " + version));
@@ -114,7 +146,9 @@ abstract class AbstractMigratorMojo extends AbstractMojo {
 		try {
 			ConfigurationMetadataRepository repository = MetadataRepositoryLoader.load(classpathEntries());
 			DeprecationCatalog catalog = DeprecationCatalog.from(repository.getAllProperties());
-			return new MigrationEngine().plan(baseDir, files, catalog, detectedVersion.orElse(null));
+			UnknownKeyOptions unknownKeyOptions = new UnknownKeyOptions(unknownKeyPolicy, this.unknownKeyIncludes,
+					this.unknownKeyExcludes);
+			return new MigrationEngine().plan(baseDir, files, catalog, detectedVersion.orElse(null), unknownKeyOptions);
 		}
 		catch (IOException ex) {
 			throw new MojoExecutionException("Failed reading Spring Boot configuration metadata", ex);
@@ -160,6 +194,15 @@ abstract class AbstractMigratorMojo extends AbstractMojo {
 	private FailurePolicy parsePolicy() throws MojoExecutionException {
 		try {
 			return FailurePolicy.parse(this.failOn);
+		}
+		catch (IllegalArgumentException ex) {
+			throw new MojoExecutionException(ex.getMessage(), ex);
+		}
+	}
+
+	private UnknownKeyPolicy parseUnknownKeyPolicy() throws MojoExecutionException {
+		try {
+			return UnknownKeyPolicy.parse(this.unknownKeys);
 		}
 		catch (IllegalArgumentException ex) {
 			throw new MojoExecutionException(ex.getMessage(), ex);

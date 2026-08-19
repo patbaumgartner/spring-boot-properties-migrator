@@ -19,6 +19,13 @@ public enum Outcome {
 	/**
 	 * The property is deprecated and the metadata names no replacement.
 	 */
-	UNSUPPORTED
+	UNSUPPORTED,
+
+	/**
+	 * No metadata on the resolved classpath describes the key at all. This is an
+	 * observation, not a verdict: the key may have been removed from Spring Boot, or it
+	 * may be read by code the migrator cannot see.
+	 */
+	UNKNOWN
 
 }

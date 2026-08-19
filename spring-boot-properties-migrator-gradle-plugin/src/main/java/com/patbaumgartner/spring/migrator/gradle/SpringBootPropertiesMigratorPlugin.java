@@ -46,6 +46,9 @@ public class SpringBootPropertiesMigratorPlugin implements Plugin<Project> {
 			task.getDryRun().convention(project.provider(extension::isDryRun));
 			task.getSpringBootVersion().convention(project.provider(extension::getSpringBootVersion));
 			task.getReportFile().convention(project.provider(extension::getReportFile));
+			task.getUnknownKeys().convention(project.provider(extension::getUnknownKeys));
+			task.getUnknownKeyIncludes().convention(project.provider(extension::getUnknownKeyIncludes));
+			task.getUnknownKeyExcludes().convention(project.provider(extension::getUnknownKeyExcludes));
 			// The task reads and rewrites its own sources, so it is never up to date.
 			task.getOutputs().upToDateWhen(Specs.satisfyNone());
 		});

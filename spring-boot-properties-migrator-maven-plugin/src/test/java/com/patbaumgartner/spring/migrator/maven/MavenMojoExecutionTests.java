@@ -123,6 +123,80 @@ class MavenMojoExecutionTests {
 		assertThat(Files.readString(properties, StandardCharsets.UTF_8)).isEqualTo("legacy.key=value\n");
 	}
 
+	@Test
+	void reportsUnknownKeysOnlyWhenAskedTo() throws Exception {
+		writeProperties("spring.codec.max-in-memory-size=1MB\n");
+		AnalyzeMojo quiet = analyzeMojo(metadataJar("legacy.key", "modern.key", "Renamed"));
+		quiet.reportFile = "target/quiet.txt";
+
+		quiet.execute();
+
+		assertThat(Files.readString(this.tempDir.resolve("target/quiet.txt"), StandardCharsets.UTF_8))
+			.doesNotContain("Not found in resolved metadata");
+
+		AnalyzeMojo loud = analyzeMojo(metadataJar("legacy.key", "modern.key", "Renamed"));
+		loud.reportFile = "target/loud.txt";
+		loud.unknownKeys = "report";
+
+		loud.execute();
+
+		assertThat(Files.readString(this.tempDir.resolve("target/loud.txt"), StandardCharsets.UTF_8))
+			.contains("Not found in resolved metadata")
+			.contains("spring.codec.max-in-memory-size");
+	}
+
+	@Test
+	void leavesUnknownKeysInPlaceWhenMigrating() throws Exception {
+		Path properties = writeProperties("spring.codec.max-in-memory-size=1MB\n");
+		MigrateMojo mojo = migrateMojo(metadataJar("legacy.key", "modern.key", "Renamed"));
+		mojo.unknownKeys = "report";
+
+		mojo.execute();
+
+		assertThat(Files.readString(properties, StandardCharsets.UTF_8))
+			.isEqualTo("spring.codec.max-in-memory-size=1MB\n");
+	}
+
+	@Test
+	void failsOnUnknownKeysOnlyUnderTheFailPolicy() throws Exception {
+		writeProperties("spring.codec.max-in-memory-size=1MB\n");
+		AnalyzeMojo mojo = analyzeMojo(metadataJar("legacy.key", "modern.key", "Renamed"));
+		mojo.unknownKeys = "fail";
+
+		assertThatThrownBy(mojo::execute).isInstanceOf(MojoFailureException.class)
+			.hasMessageContaining("not described by the configuration metadata");
+	}
+
+	@Test
+	void keepsUnknownKeysOutOfTheDeprecationFailurePolicy() throws Exception {
+		writeProperties("spring.codec.max-in-memory-size=1MB\n");
+		AnalyzeMojo mojo = analyzeMojo(metadataJar("legacy.key", "modern.key", "Renamed"));
+		mojo.unknownKeys = "report";
+		mojo.failOn = "any";
+
+		mojo.execute();
+	}
+
+	@Test
+	void honoursConfiguredUnknownKeyExcludes() throws Exception {
+		writeProperties("spring.codec.max-in-memory-size=1MB\n");
+		AnalyzeMojo mojo = analyzeMojo(metadataJar("legacy.key", "modern.key", "Renamed"));
+		mojo.unknownKeys = "fail";
+		mojo.unknownKeyExcludes = List.of("spring.codec");
+
+		mojo.execute();
+	}
+
+	@Test
+	void rejectsAnUnknownUnknownKeysValue() throws Exception {
+		writeProperties("legacy.key=value\n");
+		AnalyzeMojo mojo = analyzeMojo(metadataJar("legacy.key", "modern.key", "Renamed"));
+		mojo.unknownKeys = "sometimes";
+
+		assertThatThrownBy(mojo::execute).isInstanceOf(MojoExecutionException.class)
+			.hasMessageContaining("Valid values are");
+	}
+
 	private AnalyzeMojo analyzeMojo(Path metadataJar) {
 		AnalyzeMojo mojo = new AnalyzeMojo();
 		configure(mojo, metadataJar);
@@ -142,6 +216,7 @@ class MavenMojoExecutionTests {
 		mojo.project = project;
 		mojo.includes = List.of("src/main/resources/application.properties");
 		mojo.failOn = "never";
+		mojo.unknownKeys = "off";
 	}
 
 	private static void setDryRun(MigrateMojo mojo, boolean dryRun) throws Exception {
@@ -175,6 +250,10 @@ class MavenMojoExecutionTests {
 				      "type": "java.lang.String",
 				      "deprecated": true,
 				      %s
+				    },
+				    {
+				      "name": "spring.application.name",
+				      "type": "java.lang.String"
 				    }
 				  ]
 				}

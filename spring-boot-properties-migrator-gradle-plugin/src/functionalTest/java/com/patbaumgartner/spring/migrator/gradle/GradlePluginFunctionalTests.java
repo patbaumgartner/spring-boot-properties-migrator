@@ -95,6 +95,72 @@ class GradlePluginFunctionalTests {
 	}
 
 	@Test
+	void staysSilentAboutUnrecognisedKeysByDefault() throws Exception {
+		Path projectDir = sampleProject("", "server.servlet.context-pathh=/demo\n");
+
+		run(projectDir, "springBootPropertiesMigratorAnalyze");
+
+		assertThat(report(projectDir)).doesNotContain("Not found in resolved metadata");
+	}
+
+	@Test
+	void reportsUnrecognisedKeysWithoutRewritingThem() throws Exception {
+		Path projectDir = sampleProject("unknownKeys = 'report'", "server.servlet.context-pathh=/demo\n");
+
+		run(projectDir, "springBootPropertiesMigratorMigrate");
+
+		assertThat(report(projectDir)).contains("Not found in resolved metadata")
+			.contains("server.servlet.context-pathh");
+		assertThat(properties(projectDir)).contains("server.servlet.context-pathh=/demo")
+			.contains("server.max-http-request-header-size=16KB");
+	}
+
+	@Test
+	void unrecognisedKeysDoNotTriggerTheDeprecationFailurePolicy() throws Exception {
+		Path projectDir = sampleProject("unknownKeys = 'report'", "server.servlet.context-pathh=/demo\n");
+
+		run(projectDir, "springBootPropertiesMigratorAnalyze");
+	}
+
+	@Test
+	void unknownKeysFailPolicyFailsTheBuildAndLeavesFilesAlone() throws Exception {
+		Path projectDir = sampleProject("unknownKeys = 'fail'", "server.servlet.context-pathh=/demo\n");
+
+		BuildResult result = GradleRunner.create()
+			.withProjectDir(projectDir.toFile())
+			.withArguments("springBootPropertiesMigratorMigrate", "--stacktrace")
+			.withPluginClasspath()
+			.buildAndFail();
+
+		assertThat(result.getOutput()).contains("not described by the configuration metadata");
+		assertThat(properties(projectDir)).contains("server.max-http-header-size=16KB");
+	}
+
+	@Test
+	void unrecognisedKeysCanBeExcluded() throws Exception {
+		Path projectDir = sampleProject("unknownKeys = 'fail'\n    unknownKeyExcludes = ['server.servlet']",
+				"server.servlet.context-pathh=/demo\n");
+
+		BuildResult result = run(projectDir, "springBootPropertiesMigratorAnalyze");
+
+		assertThat(result.getOutput()).contains("BUILD SUCCESSFUL");
+		assertThat(report(projectDir)).doesNotContain("Not found in resolved metadata");
+	}
+
+	@Test
+	void rejectsAnUnknownUnknownKeysValue() throws Exception {
+		Path projectDir = sampleProject("unknownKeys = 'sometimes'");
+
+		BuildResult result = GradleRunner.create()
+			.withProjectDir(projectDir.toFile())
+			.withArguments("springBootPropertiesMigratorAnalyze")
+			.withPluginClasspath()
+			.buildAndFail();
+
+		assertThat(result.getOutput()).contains("Unknown unknownKeys value 'sometimes'");
+	}
+
+	@Test
 	void keepsThePreviousMigrateTaskNameWorking() throws Exception {
 		Path projectDir = sampleProject("");
 
@@ -125,6 +191,10 @@ class GradlePluginFunctionalTests {
 	}
 
 	private Path sampleProject(String extraConfiguration) throws Exception {
+		return sampleProject(extraConfiguration, "");
+	}
+
+	private Path sampleProject(String extraConfiguration, String extraProperties) throws Exception {
 		Path projectDir = this.tempDir.resolve("project-" + System.nanoTime());
 		Files.createDirectories(projectDir);
 		Files.writeString(projectDir.resolve("settings.gradle"), "rootProject.name='sample-gradle-app'\n",
@@ -152,7 +222,8 @@ class GradlePluginFunctionalTests {
 
 		Path propertiesFile = projectDir.resolve("src/main/resources/application.properties");
 		Files.createDirectories(propertiesFile.getParent());
-		Files.writeString(propertiesFile, "server.max-http-header-size=16KB\n", StandardCharsets.UTF_8);
+		Files.writeString(propertiesFile, "server.max-http-header-size=16KB\n" + extraProperties,
+				StandardCharsets.UTF_8);
 		return projectDir;
 	}
 

@@ -26,4 +26,11 @@ public record MigrationChange(String file, int line, String key, String replacem
 		return new MigrationChange(file, line, key, null, Outcome.UNSUPPORTED, reason, advice);
 	}
 
+	static MigrationChange unknown(String file, int line, String key) {
+		return new MigrationChange(file, line, key, null, Outcome.UNKNOWN, null,
+				"no property or aggregate ancestor of this name exists in the configuration metadata on the "
+						+ "resolved project classpath, so it may have been removed or misspelled, or it may be "
+						+ "read by code that publishes no metadata; nothing was changed");
+	}
+
 }
