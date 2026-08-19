@@ -13,6 +13,12 @@ import org.apache.maven.plugins.annotations.ResolutionScope;
 		threadSafe = true)
 public class AnalyzeMojo extends AbstractMigratorMojo {
 
+	/**
+	 * Creates the goal. Maven instantiates it reflectively.
+	 */
+	public AnalyzeMojo() {
+	}
+
 	@Override
 	protected boolean applyChanges() {
 		return false;

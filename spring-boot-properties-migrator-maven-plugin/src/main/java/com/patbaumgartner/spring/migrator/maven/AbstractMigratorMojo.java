@@ -31,6 +31,10 @@ abstract class AbstractMigratorMojo extends AbstractMojo {
 
 	static final String PREFIX = "spring-boot-properties-migrator.";
 
+	/**
+	 * The project being built, supplying both the base directory and the resolved
+	 * classpath the configuration metadata is read from.
+	 */
 	@Parameter(defaultValue = "${project}", readonly = true, required = true)
 	protected MavenProject project;
 
@@ -98,6 +102,12 @@ abstract class AbstractMigratorMojo extends AbstractMojo {
 	 */
 	protected abstract boolean applyChanges();
 
+	/**
+	 * Runs the shared analyze-and-maybe-apply flow for both goals.
+	 * @throws MojoExecutionException if the metadata or a report cannot be read or
+	 * written
+	 * @throws MojoFailureException if a configured policy is violated
+	 */
 	protected final void executeInternal() throws MojoExecutionException, MojoFailureException {
 		if (this.skip) {
 			getLog().info("Skipping Spring Boot properties migration.");

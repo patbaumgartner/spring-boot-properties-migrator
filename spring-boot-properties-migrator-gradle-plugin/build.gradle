@@ -25,6 +25,12 @@ java {
     withSourcesJar()
 }
 
+// A published API is documented or it is not published. Warnings are invisible in a
+// green build, so they have to break it instead.
+tasks.withType(Javadoc).configureEach {
+    options.addBooleanOption('Werror', true)
+}
+
 sourceSets {
     main {
         java {

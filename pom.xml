@@ -85,6 +85,11 @@
           <groupId>org.apache.maven.plugins</groupId>
           <artifactId>maven-javadoc-plugin</artifactId>
           <version>${maven.javadoc.plugin.version}</version>
+          <configuration>
+            <!-- A published API is documented or it is not published. Warnings are
+                 invisible in a green build, so they have to break it instead. -->
+            <failOnWarnings>true</failOnWarnings>
+          </configuration>
         </plugin>
       </plugins>
     </pluginManagement>

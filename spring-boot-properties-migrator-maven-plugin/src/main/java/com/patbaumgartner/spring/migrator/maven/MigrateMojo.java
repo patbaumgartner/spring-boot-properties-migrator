@@ -13,6 +13,12 @@ import org.apache.maven.plugins.annotations.ResolutionScope;
 public class MigrateMojo extends AbstractMigratorMojo {
 
 	/**
+	 * Creates the goal. Maven instantiates it reflectively.
+	 */
+	public MigrateMojo() {
+	}
+
+	/**
 	 * Reports what would change without writing anything, making this goal behave like
 	 * {@code analyze}.
 	 */

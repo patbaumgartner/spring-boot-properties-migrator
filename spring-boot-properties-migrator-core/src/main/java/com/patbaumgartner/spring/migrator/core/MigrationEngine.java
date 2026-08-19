@@ -34,6 +34,13 @@ public final class MigrationEngine {
 	private static final char BOM = '\uFEFF';
 
 	/**
+	 * Creates an engine. The engine holds no state, so one instance can plan and apply
+	 * any number of migrations.
+	 */
+	public MigrationEngine() {
+	}
+
+	/**
 	 * Analyses the given files without modifying anything.
 	 * @param rootDir the project root, used to render relative paths
 	 * @param files the configuration files to analyse
