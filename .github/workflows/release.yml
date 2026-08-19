@@ -62,7 +62,24 @@ jobs:
           ./samples/spring-boot-3.5-gradle-sample/gradlew \
             -p samples/spring-boot-3.5-gradle-sample test --no-daemon
 
+      # The portal rejects re-uploading an existing version, which would abort the
+      # release before Maven Central and the GitHub release are produced.
+      - name: Check Gradle Plugin Portal for existing version
+        id: portal
+        run: |
+          VERSION="${{ steps.release-version.outputs.version }}"
+          URL="https://plugins.gradle.org/m2/com/patbaumgartner/spring-boot-properties-migrator-gradle-plugin/${VERSION}/spring-boot-properties-migrator-gradle-plugin-${VERSION}.pom"
+          STATUS="$(curl -sSL -o /dev/null -w '%{http_code}' "$URL")"
+          echo "Portal returned HTTP $STATUS for $URL"
+          if [ "$STATUS" = "200" ]; then
+            echo "published=true" >> "$GITHUB_OUTPUT"
+            echo "::notice::Gradle plugin ${VERSION} is already on the portal; skipping publishPlugins."
+          else
+            echo "published=false" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Publish Gradle plugin
+        if: steps.portal.outputs.published != 'true'
         run: |
           ./spring-boot-properties-migrator-gradle-plugin/gradlew \
             -p spring-boot-properties-migrator-gradle-plugin \

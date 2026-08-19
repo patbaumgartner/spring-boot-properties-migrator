@@ -48,7 +48,7 @@ migration shows up in `git diff` as the keys that changed, and nothing else.
 <plugin>
   <groupId>com.patbaumgartner</groupId>
   <artifactId>spring-boot-properties-migrator-maven-plugin</artifactId>
-  <version>0.1.1</version>
+  <version>0.2.0</version>
 </plugin>
 ```
 
@@ -78,7 +78,7 @@ To fail a build while any deprecated property remains, bind `analyze` to a phase
 <plugin>
   <groupId>com.patbaumgartner</groupId>
   <artifactId>spring-boot-properties-migrator-maven-plugin</artifactId>
-  <version>0.1.1</version>
+  <version>0.2.0</version>
   <configuration>
     <failOn>any</failOn>
     <reportFile>target/reports/spring-boot-migration-report.txt</reportFile>
@@ -97,7 +97,7 @@ To fail a build while any deprecated property remains, bind `analyze` to a phase
 
 ```kotlin
 plugins {
-    id("com.patbaumgartner.spring-boot-properties-migrator") version "0.1.1"
+    id("com.patbaumgartner.spring-boot-properties-migrator") version "0.2.0"
 }
 
 springBootPropertiesMigrator {
