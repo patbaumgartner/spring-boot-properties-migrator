@@ -9,6 +9,8 @@ GRADLE_PLUGIN_PROJECT="spring-boot-properties-migrator-gradle-plugin"
 GRADLE_SAMPLE_PROJECT="samples/spring-boot-3.5-gradle-sample"
 MAVEN_CONFIG_FILE=".mvn/maven.config"
 ROOT_POM_FILE="pom.xml"
+GRADLE_SAMPLE_BUILD_FILE="samples/spring-boot-3.5-gradle-sample/build.gradle"
+README_FILE="README.md"
 PRERELEASE_REGEX='(alpha|Alpha|ALPHA|beta|Beta|BETA|rc|RC|M|EA|CR|preview|PREVIEW)'
 
 log() {
@@ -157,6 +159,35 @@ set_revision() {
   else
     die "Missing $ROOT_POM_FILE"
   fi
+
+  set_sample_versions "$version"
+}
+
+# The samples consume the plugins the way users do, so their coordinates must follow the
+# version this working tree actually builds. Leaving them behind makes a fresh clone fail
+# to resolve the plugin, which local builds hide while a stale snapshot still sits in the
+# local repository.
+set_sample_versions() {
+  local version="$1"
+  cd "$ROOT_DIR"
+
+  [[ -f "$MAVEN_SAMPLE_POM" ]] || die "Missing $MAVEN_SAMPLE_POM"
+  perl -0pi -e 's{<migrator\.version>[^<]+</migrator\.version>}{<migrator.version>'"$version"'</migrator.version>}' "$MAVEN_SAMPLE_POM"
+  perl -0pi -e 's{(<artifactId>spring-boot-3\.5-maven-sample</artifactId>\s*\n\s*<version>)[^<]+(</version>)}{${1}'"$version"'${2}}' "$MAVEN_SAMPLE_POM"
+
+  [[ -f "$GRADLE_SAMPLE_BUILD_FILE" ]] || die "Missing $GRADLE_SAMPLE_BUILD_FILE"
+  perl -0pi -e 'm{^version = }m and s{^version = .+$}{version = '"'"''"$version"''"'"'}m' "$GRADLE_SAMPLE_BUILD_FILE"
+}
+
+# The README shows the coordinates users copy, so it tracks the released version rather
+# than the development snapshot.
+set_readme_version() {
+  local version="$1"
+  cd "$ROOT_DIR"
+
+  [[ -f "$README_FILE" ]] || die "Missing $README_FILE"
+  perl -0pi -e 's{(<artifactId>spring-boot-properties-migrator-maven-plugin</artifactId>\s*\n\s*<version>)[^<]+(</version>)}{${1}'"$version"'${2}}g' "$README_FILE"
+  perl -0pi -e 's{(id\("com\.patbaumgartner\.spring-boot-properties-migrator"\) version ")[^"]+(")}{${1}'"$version"'${2}}g' "$README_FILE"
 }
 
 run_gradle() {
@@ -364,6 +395,7 @@ prepare_release() {
 
   log "Setting release version ${version}"
   set_revision "$version"
+  set_readme_version "$version"
 
   log "Running regression tests"
   run_regression_for_all
