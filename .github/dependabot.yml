@@ -5,6 +5,10 @@ updates:
     codeql-action:
       patterns:
       - github/codeql-action*
+    multi-step-actions:
+      patterns:
+      - github/codeql-action/*
+      - gradle/actions/*
   directory: /
   schedule:
     interval: weekly
@@ -88,8 +92,3 @@ updates:
     prefix: chore(deps)
     prefix-development: chore(deps-dev)
     include: scope
-groups:
-  multi-step-actions:
-    patterns:
-    - github/codeql-action/*
-    - gradle/actions/*
