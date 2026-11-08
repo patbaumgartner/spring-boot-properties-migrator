@@ -3,12 +3,13 @@ updates:
 - package-ecosystem: github-actions
   groups:
     codeql-action:
-      patterns: ["github/codeql-action*"]
+      patterns:
+      - github/codeql-action*
   directory: /
   schedule:
     interval: weekly
     day: monday
-    time: "06:00"
+    time: 06:00
     timezone: Europe/Zurich
   open-pull-requests-limit: 5
   labels:
@@ -22,7 +23,7 @@ updates:
   schedule:
     interval: weekly
     day: monday
-    time: "06:00"
+    time: 06:00
     timezone: Europe/Zurich
   open-pull-requests-limit: 10
   labels:
@@ -37,7 +38,7 @@ updates:
   schedule:
     interval: weekly
     day: monday
-    time: "06:00"
+    time: 06:00
     timezone: Europe/Zurich
   ignore:
   - dependency-name: org.springframework.boot:spring-boot-starter-parent
@@ -57,7 +58,7 @@ updates:
   schedule:
     interval: weekly
     day: monday
-    time: "06:00"
+    time: 06:00
     timezone: Europe/Zurich
   open-pull-requests-limit: 10
   labels:
@@ -72,7 +73,7 @@ updates:
   schedule:
     interval: weekly
     day: monday
-    time: "06:00"
+    time: 06:00
     timezone: Europe/Zurich
   ignore:
   - dependency-name: org.springframework.boot:spring-boot-autoconfigure
@@ -87,3 +88,8 @@ updates:
     prefix: chore(deps)
     prefix-development: chore(deps-dev)
     include: scope
+groups:
+  multi-step-actions:
+    patterns:
+    - github/codeql-action/*
+    - gradle/actions/*
